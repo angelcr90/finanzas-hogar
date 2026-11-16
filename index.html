@@ -1,0 +1,2371 @@
+<!DOCTYPE html>
+<html lang="es" class="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Finanzas Hogar · Control en Pareja</title>
+
+  <!-- Configuración PWA y iOS Safari (Añadir a pantalla de inicio sin barras del navegador) -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Finanzas Hogar" />
+  <meta name="theme-color" content="#0f172a" />
+
+  <!-- Icono SVG embebido para iOS Touch Icon y Favicon -->
+  <link rel="apple-touch-icon" id="ios-icon" href="" />
+  <link rel="icon" type="image/svg+xml" id="favicon-icon" href="" />
+  <link rel="manifest" id="pwa-manifest" href="" />
+
+  <!-- Tipografía Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* Ajustes nativos para iOS Safari y Safe Areas (Notch / Dynamic Island / Home Bar) */
+    :root {
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+    }
+
+    body {
+      padding-top: var(--sat);
+      padding-bottom: calc(5.5rem + var(--sab));
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: contain;
+    }
+
+    .bottom-nav {
+      padding-bottom: calc(0.5rem + var(--sab));
+    }
+
+    /* Ocultar flechas en input numérico */
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] {
+      -moz-appearance: textfield;
+    }
+
+    /* Scrollbar sutil */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.4);
+      border-radius: 9999px;
+    }
+
+    /* Animación suave para modales y vistas */
+    @keyframes fadeSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .animate-view {
+      animation: fadeSlideUp 0.22s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased selection:bg-indigo-500 selection:text-white transition-colors duration-200">
+
+  <!-- TOAST / NOTIFICACIÓN FLOTANTE (Sin alert()) -->
+  <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md pointer-events-none flex flex-col gap-2" style="margin-top: var(--sat);"></div>
+
+  <!-- MODAL DE CONFIRMACIÓN PERSONALIZADO (Sin confirm()) -->
+  <div id="confirm-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl animate-view">
+      <div class="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center text-2xl mb-4">⚠️</div>
+      <h3 id="confirm-title" class="text-lg font-bold text-slate-900 dark:text-white mb-2">¿Confirmar acción?</h3>
+      <p id="confirm-message" class="text-sm text-slate-600 dark:text-slate-400 mb-6">Esta acción no se puede deshacer.</p>
+      <div class="flex gap-3">
+        <button id="confirm-cancel-btn" class="flex-1 py-3 px-4 rounded-2xl font-semibold text-sm bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 active:scale-95 transition">Cancelar</button>
+        <button id="confirm-ok-btn" class="flex-1 py-3 px-4 rounded-2xl font-semibold text-sm bg-rose-600 text-white shadow-lg shadow-rose-600/25 active:scale-95 transition">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CABECERA SUPERIOR STICKY -->
+  <header class="sticky top-0 z-30 bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
+      <!-- Logo y Estado Sync -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-bold shadow-md shadow-indigo-500/20 text-lg">
+          🏡
+        </div>
+        <div>
+          <h1 class="text-sm font-bold tracking-tight leading-none">Finanzas Hogar</h1>
+          <div class="flex items-center gap-1.5 mt-1">
+            <span id="sync-dot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span id="sync-status-text" class="text-[11px] font-medium text-slate-500 dark:text-slate-400">Local listo</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Selector de Mes/Año -->
+      <div class="flex items-center bg-slate-100 dark:bg-slate-800 rounded-2xl p-1 border border-slate-200/60 dark:border-slate-700/60">
+        <button id="prev-month-btn" aria-label="Mes anterior" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 active:scale-90 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <span id="current-month-label" class="px-2.5 text-xs sm:text-sm font-bold capitalize min-w-[115px] text-center select-none">
+          Noviembre 2026
+        </span>
+        <button id="next-month-btn" aria-label="Mes siguiente" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 active:scale-90 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+
+      <!-- Botón Tema Claro / Oscuro -->
+      <button id="theme-toggle-btn" aria-label="Cambiar tema" class="w-9 h-9 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-amber-400 border border-slate-200/60 dark:border-slate-700/60 active:scale-90 transition">
+        <span id="theme-icon" class="text-base">🌙</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- CONTENIDO PRINCIPAL -->
+  <main class="max-w-3xl mx-auto px-4 pt-4 space-y-5">
+
+    <!-- BANNER DATOS DE PRUEBA (Visible solo si hay datos demo activos) -->
+    <div id="demo-banner" class="hidden bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="flex items-start gap-2.5">
+        <span class="text-lg">✨</span>
+        <div>
+          <p class="text-xs font-semibold text-indigo-950 dark:text-indigo-200">Modo demostración con datos de ejemplo</p>
+          <p class="text-[11px] text-indigo-700 dark:text-indigo-300/80">Hemos cargado movimientos realistas para que veas los gráficos al instante.</p>
+        </div>
+      </div>
+      <button id="clear-demo-btn" class="self-end sm:self-center shrink-0 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm active:scale-95 transition">
+        Borrar datos de prueba
+      </button>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- VISTA 1: RESUMEN / DASHBOARD                                          -->
+    <!-- ===================================================================== -->
+    <section id="view-dashboard" class="space-y-5 animate-view">
+      
+      <!-- Tarjeta Principal de Balance Neto -->
+      <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 dark:from-indigo-950 dark:via-slate-900 dark:to-slate-950 text-white p-5 sm:p-6 shadow-xl border border-slate-800">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs font-medium uppercase tracking-wider text-slate-300">Balance Neto del Mes</span>
+          <span id="balance-badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            Superávit
+          </span>
+        </div>
+        <div id="net-balance-amount" class="text-3xl sm:text-4xl font-extrabold tracking-tight my-1">
+          +0,00 €
+        </div>
+
+        <!-- Desglose Rápido Ingresos vs Gastos -->
+        <div class="grid grid-cols-2 gap-3 mt-5 pt-4 border-t border-white/10">
+          <div class="bg-white/5 rounded-2xl p-3">
+            <div class="flex items-center gap-1.5 text-emerald-400 text-xs font-semibold mb-1">
+              <span>↗</span> Ingresos Totales
+            </div>
+            <div id="total-income-amount" class="text-lg sm:text-xl font-bold text-white">0,00 €</div>
+            <div id="income-breakdown-sub" class="text-[11px] text-slate-400 mt-0.5">CC: 0 € · Efec: 0 €</div>
+          </div>
+
+          <div class="bg-white/5 rounded-2xl p-3">
+            <div class="flex items-center gap-1.5 text-rose-400 text-xs font-semibold mb-1">
+              <span>↘</span> Gastos Totales
+            </div>
+            <div id="total-expense-amount" class="text-lg sm:text-xl font-bold text-white">0,00 €</div>
+            <div id="expense-breakdown-sub" class="text-[11px] text-slate-400 mt-0.5">CC: 0 € · Efec: 0 €</div>
+          </div>
+        </div>
+
+        <!-- Desglose Fijos vs Variables + Acción rápida -->
+        <div class="mt-3 bg-white/5 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-4 text-xs">
+            <div>
+              <span class="text-slate-400 block text-[10px] uppercase">Fijos</span>
+              <span id="fixed-expense-amount" class="font-bold text-amber-300">0,00 €</span>
+            </div>
+            <div class="h-6 w-px bg-white/10"></div>
+            <div>
+              <span class="text-slate-400 block text-[10px] uppercase">Variables</span>
+              <span id="variable-expense-amount" class="font-bold text-sky-300">0,00 €</span>
+            </div>
+          </div>
+          <button id="quick-apply-fixed-btn" class="px-3 py-1.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-semibold shadow-sm active:scale-95 transition flex items-center gap-1.5">
+            <span>📌</span> Aplicar fijos del mes
+          </button>
+        </div>
+      </div>
+
+      <!-- Gráfico de Tendencia Mensual del Saldo en Cuenta Corriente (CC) -->
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100">Evolución Saldo Cuenta Corriente (CC)</h2>
+              <button id="jump-initial-cc-btn" class="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 transition">
+                Inicial: <span id="badge-initial-cc">0,00 €</span> ✏️
+              </button>
+            </div>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">Saldo acumulado solo movimientos en CC (excluye Efectivo)</p>
+          </div>
+          <div class="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 px-3.5 py-2 rounded-2xl text-right">
+            <span class="block text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Saldo Actual en CC</span>
+            <span id="current-cc-balance-kpi" class="text-base sm:text-lg font-extrabold text-emerald-700 dark:text-emerald-300">0,00 €</span>
+          </div>
+        </div>
+        <div class="relative h-56 w-full">
+          <canvas id="ccTrendLineChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Gráficos Interactivos (Chart.js) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Gráfico Donut: Gastos por Categoría -->
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100">Gastos por Categoría</h2>
+            <span id="donut-total-badge" class="text-xs font-semibold text-slate-500 dark:text-slate-400">0 €</span>
+          </div>
+          <div class="relative h-56 w-full flex items-center justify-center">
+            <canvas id="categoryDonutChart"></canvas>
+            <div id="donut-empty-state" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center p-4">
+              <span class="text-2xl mb-1">📊</span>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Sin gastos registrados en este mes</p>
+            </div>
+          </div>
+          <!-- Leyenda personalizada compacta -->
+          <div id="donut-custom-legend" class="mt-3 grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto pr-1"></div>
+        </div>
+
+        <!-- Gráfico Barras: Comparativa 6 Meses -->
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100">Evolución (6 meses)</h2>
+            <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400">Ingresos vs Fijos vs Var.</span>
+          </div>
+          <div class="relative h-64 w-full">
+            <canvas id="monthlyBarChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Listado de Movimientos del Mes con Buscador y Filtros -->
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 dark:text-white">Movimientos del Mes</h2>
+            <p id="movements-count-label" class="text-xs text-slate-500 dark:text-slate-400">0 registros encontrados</p>
+          </div>
+
+          <!-- Filtros rápidos -->
+          <div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+            <button data-filter="all" class="filter-chip active px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 text-white dark:bg-indigo-600 transition">Todos</button>
+            <button data-filter="expense" class="filter-chip px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 transition">Gastos</button>
+            <button data-filter="income" class="filter-chip px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 transition">Ingresos</button>
+            <button data-filter="fixed" class="filter-chip px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 transition">Fijos</button>
+          </div>
+        </div>
+
+        <!-- Barra de búsqueda y filtro categoría/método -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div class="relative sm:col-span-2">
+            <input type="text" id="search-input" placeholder="Buscar por descripción, categoría o persona..." class="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-transparent focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 text-xs sm:text-sm outline-none transition" />
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+          </div>
+          <select id="method-filter-select" class="w-full px-3 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-transparent focus:border-indigo-500 text-xs sm:text-sm outline-none transition">
+            <option value="all">💳 Todos los métodos</option>
+            <option value="CC">🏦 Cuenta Corriente (CC)</option>
+            <option value="Efectivo">💵 Efectivo</option>
+          </select>
+        </div>
+
+        <!-- Lista de items -->
+        <div id="movements-list" class="divide-y divide-slate-100 dark:divide-slate-800/80">
+          <!-- Renderizado dinámicamente -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- VISTA 2: NUEVO / EDITAR MOVIMIENTO ULTRARRÁPIDO                        -->
+    <!-- ===================================================================== -->
+    <section id="view-add" class="hidden space-y-4 animate-view">
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h2 id="form-view-title" class="text-lg font-bold">Registrar Movimiento</h2>
+          <button id="cancel-edit-btn" class="hidden text-xs font-semibold text-rose-600 dark:text-rose-400 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/50">
+            Cancelar edición
+          </button>
+        </div>
+
+        <form id="movement-form" class="space-y-4">
+          <input type="hidden" id="edit-movement-id" value="" />
+
+          <!-- Conmutador Gasto / Ingreso -->
+          <div class="grid grid-cols-2 gap-2 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl">
+            <button type="button" id="type-expense-btn" class="py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-rose-600 text-white shadow-md transition">
+              <span>💸</span> Gasto
+            </button>
+            <button type="button" id="type-income-btn" class="py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 text-slate-600 dark:text-slate-300 transition">
+              <span>💰</span> Ingreso
+            </button>
+          </div>
+          <input type="hidden" id="movement-type" value="expense" />
+
+          <!-- Importe Grande Optimizado para Teclado Numérico iPhone -->
+          <div>
+            <label for="movement-amount" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Importe (€)</label>
+            <div class="relative">
+              <input type="number" id="movement-amount" inputmode="decimal" step="0.01" min="0.01" required placeholder="0,00"
+                class="w-full text-center text-4xl font-extrabold py-4 px-10 rounded-2xl bg-slate-50 dark:bg-slate-800/90 border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 outline-none transition" />
+              <span class="absolute right-5 top-1/2 -translate-y-1/2 text-2xl font-bold text-slate-400">€</span>
+            </div>
+          </div>
+
+          <!-- Fecha: Botón rápido "Hoy" + Calendario -->
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Fecha del movimiento</label>
+            <div class="flex gap-2">
+              <button type="button" id="date-today-btn" class="px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm bg-indigo-600 text-white shadow-sm active:scale-95 transition shrink-0">
+                📅 Hoy
+              </button>
+              <input type="date" id="movement-date" required
+                class="flex-1 min-w-0 px-3.5 py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-semibold outline-none focus:border-indigo-500" />
+            </div>
+          </div>
+
+          <!-- Categoría y Método de Pago -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="movement-category" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Categoría</label>
+              <select id="movement-category" required
+                class="w-full px-3.5 py-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-semibold outline-none focus:border-indigo-500">
+                <!-- Poblado dinámicamente -->
+              </select>
+            </div>
+
+            <div>
+              <label for="movement-method" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Cuenta / Método</label>
+              <select id="movement-method" required
+                class="w-full px-3.5 py-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-semibold outline-none focus:border-indigo-500">
+                <option value="CC">🏦 Cuenta Corriente (CC)</option>
+                <option value="Efectivo">💵 Efectivo</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Quién registra (Tú / Pareja) -->
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">¿Quién lo registra?</label>
+            <div class="grid grid-cols-2 gap-2.5">
+              <button type="button" data-person="Tú" class="person-btn py-3 px-3 rounded-2xl text-xs sm:text-sm font-bold border-2 border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 transition">
+                🧑 <span id="label-person-1">Tú</span>
+              </button>
+              <button type="button" data-person="Pareja" class="person-btn py-3 px-3 rounded-2xl text-xs sm:text-sm font-bold border-2 border-transparent bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 transition">
+                ❤️ <span id="label-person-2">Pareja</span>
+              </button>
+            </div>
+            <input type="hidden" id="movement-person" value="Tú" />
+          </div>
+
+          <!-- Descripción Opcional -->
+          <div>
+            <label for="movement-desc" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+              Descripción <span class="normal-case font-normal text-slate-400">(opcional)</span>
+            </label>
+            <input type="text" id="movement-desc" placeholder="Ej. Compra semanal Mercadona, pienso Nami..."
+              class="w-full px-4 py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:border-indigo-500" />
+          </div>
+
+          <!-- Botón Guardar -->
+          <button type="submit" id="save-movement-btn"
+            class="w-full py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-base shadow-lg shadow-indigo-600/25 active:scale-[0.98] transition flex items-center justify-center gap-2">
+            <span>✅</span> <span id="save-btn-text">Guardar Movimiento</span>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- VISTA 3: GASTOS FIJOS MENSUALES (HIPOTECA, RENTING, ETC.)             -->
+    <!-- ===================================================================== -->
+    <section id="view-fixed" class="hidden space-y-5 animate-view">
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-bold">📌 Gastos Fijos Mensuales</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+              Total recurrente: <strong id="configured-fixed-total" class="text-amber-600 dark:text-amber-400">0,00 €</strong> / mes
+            </p>
+          </div>
+          <button id="apply-fixed-view-btn" class="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 active:scale-95 transition flex items-center justify-center gap-1.5">
+            <span>⚡</span> Aplicar a <span id="fixed-target-month-name" class="capitalize">este mes</span>
+          </button>
+        </div>
+
+        <div id="fixed-expenses-list" class="space-y-2.5">
+          <!-- Renderizado dinámicamente -->
+        </div>
+
+        <!-- Formulario añadir / editar gasto fijo -->
+        <form id="fixed-form" class="pt-4 border-t border-slate-200/80 dark:border-slate-800 space-y-3">
+          <input type="hidden" id="edit-fixed-id" value="" />
+          <div class="flex items-center justify-between">
+            <h3 id="fixed-form-title" class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Añadir Gasto Fijo</h3>
+            <button type="button" id="cancel-fixed-edit-btn" class="hidden text-xs font-semibold text-rose-500">Cancelar edición</button>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <input type="text" id="fixed-name" required placeholder="Concepto (ej. Hipoteca, Luz...)"
+              class="px-3.5 py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+            <input type="number" id="fixed-amount" inputmode="decimal" step="0.01" min="0.01" required placeholder="Importe (€)"
+              class="px-3.5 py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500" />
+            <select id="fixed-category" class="px-3.5 py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+              <!-- Poblado dinámicamente -->
+            </select>
+          </div>
+          <button type="submit" id="save-fixed-btn" class="w-full sm:w-auto px-5 py-3 rounded-2xl bg-slate-900 dark:bg-indigo-600 text-white text-xs font-bold active:scale-95 transition">
+            + Guardar Gasto Fijo
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- VISTA 4: SYNC / CSV Y COPIAS DE SEGURIDAD                             -->
+    <!-- ===================================================================== -->
+    <section id="view-sync" class="hidden space-y-5 animate-view">
+
+      <!-- 1. Sincronización Gratuita en Tiempo Real (Google Sheets + Apps Script) -->
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 mb-1">
+              ☁️ 100% Gratuito · Sin servidores
+            </span>
+            <h2 class="text-lg font-bold">Sincronización en Pareja (Google Sheets)</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Al guardar un movimiento se envía automáticamente a Google Sheets. Pulsa <strong>Sincronizar ahora</strong> para descargar los registros nuevos de tu pareja.
+            </p>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between text-xs">
+          <span class="text-slate-500 dark:text-slate-400">Última sincronización:</span>
+          <span id="last-sync-timestamp" class="font-bold text-slate-800 dark:text-slate-200">Sin sincronizar aún</span>
+        </div>
+
+        <div class="space-y-3">
+          <div>
+            <label for="gas-url-input" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+              URL de la aplicación web (Google Apps Script)
+            </label>
+            <input type="url" id="gas-url-input" placeholder="https://script.google.com/macros/s/AKfycb.../exec"
+              class="w-full px-3.5 py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono outline-none focus:border-indigo-500" />
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <button id="save-gas-url-btn" class="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold active:scale-95 transition">
+              💾 Guardar URL
+            </button>
+            <button id="sync-now-btn" class="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold active:scale-95 transition flex items-center gap-1.5">
+              <span>🔄</span> Sincronizar ahora
+            </button>
+            <button id="toggle-gas-guide-btn" class="px-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold active:scale-95 transition">
+              📋 Ver código Apps Script
+            </button>
+          </div>
+
+          <!-- Guía y Código Apps Script desplegable -->
+          <div id="gas-guide-box" class="hidden mt-3 p-4 rounded-2xl bg-slate-900 text-slate-100 space-y-3 border border-slate-700">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-indigo-300">Instrucciones (2 minutos):</span>
+              <button id="copy-gas-code-btn" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold active:scale-95 transition">
+                Copiar código
+              </button>
+            </div>
+            <ol class="text-[11px] text-slate-300 list-decimal list-inside space-y-1">
+              <li>Crea una hoja nueva en <strong>Google Sheets</strong> y ve a <em>Extensiones &gt; Apps Script</em>.</li>
+              <li>Borra el código que aparece y pega el script de abajo. Guarda el proyecto.</li>
+              <li>Pulsa <em>Implementar &gt; Nueva implementación &gt; Tipo: Aplicación web</em>.</li>
+              <li>En "Quién tiene acceso" elige <strong>Cualquier usuario</strong>, implementa y copia la URL resultante aquí arriba (en tu móvil y en el de tu pareja).</li>
+            </ol>
+            <pre id="gas-script-code" class="text-[10px] font-mono bg-slate-950 p-3 rounded-xl overflow-x-auto text-emerald-300 border border-slate-800 select-all">function doGet(e) {
+  var sheet = getOrCreateSheet();
+  var data = sheet.getDataRange().getValues();
+  var rows = [];
+  for (var i = 1; i &lt; data.length; i++) {
+    if (!data[i][0]) continue;
+    rows.push({
+      id: String(data[i][0]),
+      type: String(data[i][1]),
+      amount: Number(data[i][2]),
+      date: String(data[i][3]),
+      category: String(data[i][4]),
+      method: String(data[i][5]),
+      person: String(data[i][6]),
+      isFixed: data[i][7] === true || data[i][7] === 'TRUE',
+      description: String(data[i][8] || '')
+    });
+  }
+  return ContentService.createTextOutput(JSON.stringify({ status: 'ok', movements: rows }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  var sheet = getOrCreateSheet();
+  var payload = JSON.parse(e.postData.contents);
+  var action = payload.action;
+
+  if (action === 'upsert') {
+    var m = payload.movement;
+    var data = sheet.getDataRange().getValues();
+    var rowIndex = -1;
+    for (var i = 1; i &lt; data.length; i++) {
+      if (String(data[i][0]) === String(m.id)) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+    var rowValues = [m.id, m.type, m.amount, m.date, m.category, m.method, m.person, m.isFixed, m.description || ''];
+    if (rowIndex &gt; 0) {
+      sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
+    } else {
+      sheet.appendRow(rowValues);
+    }
+  } else if (action === 'delete') {
+    var delId = String(payload.id);
+    var dataDel = sheet.getDataRange().getValues();
+    for (var j = dataDel.length - 1; j &gt;= 1; j--) {
+      if (String(dataDel[j][0]) === delId) {
+        sheet.deleteRow(j + 1);
+      }
+    }
+  } else if (action === 'bulkSync') {
+    var list = payload.movements || [];
+    sheet.clearContents();
+    sheet.appendRow(['id', 'type', 'amount', 'date', 'category', 'method', 'person', 'isFixed', 'description']);
+    list.forEach(function(m) {
+      sheet.appendRow([m.id, m.type, m.amount, m.date, m.category, m.method, m.person, m.isFixed, m.description || '']);
+    });
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ status: 'ok' }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getOrCreateSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Movimientos');
+  if (!sheet) {
+    sheet = ss.insertSheet('Movimientos');
+    sheet.appendRow(['id', 'type', 'amount', 'date', 'category', 'method', 'person', 'isFixed', 'description']);
+  }
+  return sheet;
+}</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Copias de Seguridad (JSON y CSV para Google Drive) -->
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+        <div>
+          <h2 class="text-base font-bold">Copias de Seguridad (Google Drive / Local)</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Exporta tus datos en CSV para abrir en Excel/Sheets o guarda una copia completa en JSON en tu Google Drive.</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <button id="export-csv-month-btn" class="py-3 px-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition">
+            <span>📊</span> Exportar CSV (Mes actual)
+          </button>
+          <button id="export-csv-all-btn" class="py-3 px-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition">
+            <span>📑</span> Exportar CSV (Histórico completo)
+          </button>
+          <button id="export-json-btn" class="py-3 px-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition">
+            <span>💾</span> Descargar Backup JSON
+          </button>
+          <label class="py-3 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition">
+            <span>📥</span> Restaurar Backup JSON
+            <input type="file" id="import-json-input" accept=".json,application/json" class="hidden" />
+          </label>
+        </div>
+
+        <div class="pt-2 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-2">
+          <button id="sync-clear-demo-btn" class="px-3.5 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-xs font-bold active:scale-95 transition">
+            🧹 Borrar datos de ejemplo
+          </button>
+          <button id="reset-all-data-btn" class="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 text-xs font-bold active:scale-95 transition">
+            ⚠️ Resetear todos los datos
+          </button>
+        </div>
+
+        <!-- Instrucción rápida instalación PWA iPhone -->
+        <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 text-xs text-slate-600 dark:text-slate-300 space-y-1">
+          <p class="font-bold text-slate-800 dark:text-white">📲 Instalar como App en iPhone (iOS):</p>
+          <p>Abre esta web en <strong>Safari</strong>, pulsa el botón <strong>Compartir</strong> (cuadrado con flecha hacia arriba) y selecciona <strong>"Añadir a pantalla de inicio"</strong>.</p>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- VISTA 5: AJUSTES PERSONALES, SALDO INICIAL CC Y CATEGORÍAS            -->
+    <!-- ===================================================================== -->
+    <section id="view-settings" class="hidden space-y-5 animate-view">
+
+      <!-- 1. Saldo Inicial en Cuenta Corriente (CC) -->
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
+        <div>
+          <h2 class="text-base font-bold">🏦 Saldo Inicial en Cuenta Corriente (CC)</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Introduce el dinero que tenéis en la cuenta corriente al empezar a usar la app. El gráfico de tendencia sumará ingresos CC y restará gastos CC a partir de esta cifra.
+          </p>
+        </div>
+        <div class="flex gap-2.5">
+          <div class="relative flex-1">
+            <input type="number" id="setting-initial-cc" inputmode="decimal" step="0.01" placeholder="0,00"
+              class="w-full pl-4 pr-9 py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-base font-extrabold outline-none focus:ring-2 focus:ring-indigo-500" />
+            <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">€</span>
+          </div>
+          <button id="save-initial-cc-btn" class="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 active:scale-95 transition shrink-0">
+            Guardar saldo
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Nombres de la Pareja -->
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
+        <h2 class="text-base font-bold">👫 Nombres de los Miembros</h2>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Persona 1 (Tú)</label>
+            <input type="text" id="setting-person1" value="Tú" class="w-full px-3.5 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Persona 2 (Pareja)</label>
+            <input type="text" id="setting-person2" value="Pareja" class="w-full px-3.5 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+        <button id="save-names-btn" class="px-4 py-2.5 rounded-2xl bg-slate-900 dark:bg-slate-800 text-white text-xs font-bold active:scale-95 transition">
+          Guardar nombres
+        </button>
+      </div>
+
+      <!-- 3. Gestión Completa de Categorías Personalizadas -->
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+        <div>
+          <h2 class="text-base font-bold">🏷️ Categorías Personalizadas</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Añade, edita el nombre/icono o elimina tus categorías de gastos e ingresos.</p>
+        </div>
+
+        <!-- Formulario añadir o editar categoría -->
+        <form id="category-form" class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span id="cat-form-title" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">Nueva Categoría</span>
+            <button type="button" id="cancel-cat-edit-btn" class="hidden text-[11px] font-semibold text-rose-500">Cancelar edición</button>
+          </div>
+          <input type="hidden" id="edit-cat-type" value="" />
+          <input type="hidden" id="edit-cat-index" value="" />
+
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+            <select id="new-cat-type" class="px-3 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold outline-none">
+              <option value="expense">💸 Gasto</option>
+              <option value="income">💰 Ingreso</option>
+            </select>
+            <input type="text" id="new-cat-emoji" maxlength="4" placeholder="Emoji (ej. 🐾)" value="🏷️"
+              class="px-3 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-center outline-none" />
+            <input type="text" id="new-cat-name" required placeholder="Nombre categoría..."
+              class="px-3.5 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm outline-none" />
+            <button type="submit" id="save-cat-btn" class="px-4 py-2.5 rounded-2xl bg-indigo-600 text-white text-xs font-bold active:scale-95 transition">
+              + Añadir
+            </button>
+          </div>
+        </form>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-rose-500 mb-2">Categorías de Gasto</h3>
+            <div id="expense-categories-list" class="space-y-1.5"></div>
+          </div>
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-500 mb-2">Categorías de Ingreso</h3>
+            <div id="income-categories-list" class="space-y-1.5"></div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- NAVEGACIÓN INFERIOR ESTILO APP NATIVA iOS -->
+  <nav class="bottom-nav fixed bottom-0 inset-x-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-200/80 dark:border-slate-800/80">
+    <div class="max-w-3xl mx-auto px-2 pt-1.5 flex items-center justify-around">
+      <button data-nav="dashboard" class="nav-tab active flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl text-indigo-600 dark:text-indigo-400 transition">
+        <span class="text-xl leading-none mb-1">📊</span>
+        <span class="text-[10px] font-bold">Resumen</span>
+      </button>
+
+      <button data-nav="fixed" class="nav-tab flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl text-slate-500 dark:text-slate-400 transition">
+        <span class="text-xl leading-none mb-1">📌</span>
+        <span class="text-[10px] font-semibold">Fijos</span>
+      </button>
+
+      <!-- Botón Central Destacado (+) -->
+      <button data-nav="add" id="nav-add-btn" class="nav-tab -mt-5 flex flex-col items-center justify-center transition">
+        <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 text-white shadow-lg shadow-indigo-600/35 flex items-center justify-center text-3xl font-light active:scale-90 transition border-4 border-slate-50 dark:border-slate-950">
+          +
+        </div>
+        <span class="text-[10px] font-bold text-slate-600 dark:text-slate-300 mt-0.5">Añadir</span>
+      </button>
+
+      <button data-nav="sync" class="nav-tab flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl text-slate-500 dark:text-slate-400 transition">
+        <span class="text-xl leading-none mb-1">☁️</span>
+        <span class="text-[10px] font-semibold">Sync / CSV</span>
+      </button>
+
+      <button data-nav="settings" id="nav-gear-btn" class="nav-tab flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl text-slate-500 dark:text-slate-400 transition">
+        <span class="text-xl leading-none mb-1">⚙️</span>
+        <span class="text-[10px] font-semibold">Ajustes</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- SCRIPT PRINCIPAL DE LA APLICACIÓN -->
+  <script>
+    (function () {
+      'use strict';
+
+      /* =========================================================================
+       * 1. CONFIGURACIÓN PWA DINÁMICA PARA iPHONE (Icono SVG + Manifest Blob)
+       * ========================================================================= */
+      function setupPWA() {
+        const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+          <defs>
+            <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#4f46e5"/>
+              <stop offset="100%" stop-color="#7c3aed"/>
+            </linearGradient>
+          </defs>
+          <rect width="512" height="512" rx="115" fill="url(#g)"/>
+          <path d="M256 112L104 236h44v152h84v-96h48v96h84V236h44L256 112z" fill="#ffffff"/>
+          <circle cx="376" cy="144" r="46" fill="#10b981"/>
+          <text x="376" y="160" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#ffffff" text-anchor="middle">€</text>
+        </svg>`;
+
+        const encodedSvg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgIcon);
+        document.getElementById('ios-icon').setAttribute('href', encodedSvg);
+        document.getElementById('favicon-icon').setAttribute('href', encodedSvg);
+
+        const manifest = {
+          name: 'Finanzas Hogar · Pareja',
+          short_name: 'Finanzas',
+          start_url: '.',
+          display: 'standalone',
+          background_color: '#0f172a',
+          theme_color: '#4f46e5',
+          icons: [
+            {
+              src: encodedSvg,
+              sizes: '512x512',
+              type: 'image/svg+xml',
+              purpose: 'any maskable'
+            }
+          ]
+        };
+
+        try {
+          const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+          const manifestURL = URL.createObjectURL(blob);
+          document.getElementById('pwa-manifest').setAttribute('href', manifestURL);
+        } catch (e) {
+          console.warn('No se pudo crear el manifest dinámico:', e);
+        }
+      }
+
+      /* =========================================================================
+       * 2. ESTADO GLOBAL Y DATOS POR DEFECTO
+       * ========================================================================= */
+      const STORAGE_KEY = 'finanzas_hogar_v1';
+
+      const DEFAULT_EXPENSE_CATEGORIES = [
+        { name: 'Supermercado', emoji: '🛒', color: '#10b981' },
+        { name: 'Suministros (luz/agua)', emoji: '💡', color: '#f59e0b' },
+        { name: 'Gastos Óliver', emoji: '👶', color: '#3b82f6' },
+        { name: 'Mascota Nami', emoji: '🐾', color: '#ec4899' },
+        { name: 'Gasolina', emoji: '⛽', color: '#6366f1' },
+        { name: 'Ocio', emoji: '🍽️', color: '#8b5cf6' },
+        { name: 'Farmacia', emoji: '💊', color: '#14b8a6' },
+        { name: 'Decoración', emoji: '🪴', color: '#f97316' },
+        { name: 'Vivienda y Vehículos', emoji: '🏠', color: '#ef4444' },
+        { name: 'Otros', emoji: '📦', color: '#64748b' }
+      ];
+
+      const DEFAULT_INCOME_CATEGORIES = [
+        { name: 'Nómina', emoji: '💼', color: '#10b981' },
+        { name: 'Facturación / Autónoma', emoji: '🧾', color: '#3b82f6' },
+        { name: 'Ingreso Extra', emoji: '🎁', color: '#8b5cf6' },
+        { name: 'Otros', emoji: '💰', color: '#64748b' }
+      ];
+
+      const DEFAULT_FIXED_EXPENSES = [
+        { id: 'fix_hipoteca', name: 'Hipoteca', amount: 1000, category: 'Vivienda y Vehículos', method: 'CC' },
+        { id: 'fix_renting', name: 'Renting coches', amount: 628, category: 'Vivienda y Vehículos', method: 'CC' }
+      ];
+
+      // Generar datos de demostración realistas en el mes actual y anteriores
+      function generateDemoMovements() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = now.getMonth();
+
+        const pad = (n) => String(n).padStart(2, '0');
+        const dateStr = (year, monthIndex, day) => {
+          const d = new Date(year, monthIndex, day);
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        };
+
+        const demos = [
+          // Mes actual
+          { id: 'demo_1', type: 'income', amount: 2350, date: dateStr(y, m, 1), category: 'Nómina', method: 'CC', person: 'Tú', isFixed: false, description: 'Nómina mensual', isDemo: true },
+          { id: 'demo_2', type: 'income', amount: 1850, date: dateStr(y, m, 3), category: 'Facturación / Autónoma', method: 'CC', person: 'Pareja', isFixed: false, description: 'Facturas clientes', isDemo: true },
+          { id: 'demo_3', type: 'expense', amount: 1000, date: dateStr(y, m, 2), category: 'Vivienda y Vehículos', method: 'CC', person: 'Tú', isFixed: true, fixedRefId: 'fix_hipoteca', description: 'Hipoteca', isDemo: true },
+          { id: 'demo_4', type: 'expense', amount: 628, date: dateStr(y, m, 5), category: 'Vivienda y Vehículos', method: 'CC', person: 'Tú', isFixed: true, fixedRefId: 'fix_renting', description: 'Renting coches', isDemo: true },
+          { id: 'demo_5', type: 'expense', amount: 142.80, date: dateStr(y, m, 4), category: 'Supermercado', method: 'CC', person: 'Pareja', isFixed: false, description: 'Compra semanal Mercadona', isDemo: true },
+          { id: 'demo_6', type: 'expense', amount: 89.40, date: dateStr(y, m, 6), category: 'Suministros (luz/agua)', method: 'CC', person: 'Tú', isFixed: false, description: 'Factura electricidad', isDemo: true },
+          { id: 'demo_7', type: 'expense', amount: 64.50, date: dateStr(y, m, 7), category: 'Gastos Óliver', method: 'CC', person: 'Pareja', isFixed: false, description: 'Pañales y ropa Óliver', isDemo: true },
+          { id: 'demo_8', type: 'expense', amount: 38.90, date: dateStr(y, m, 8), category: 'Mascota Nami', method: 'Efectivo', person: 'Tú', isFixed: false, description: 'Pienso y snacks Nami', isDemo: true },
+          { id: 'demo_9', type: 'expense', amount: 55.00, date: dateStr(y, m, 9), category: 'Gasolina', method: 'CC', person: 'Tú', isFixed: false, description: 'Repostaje', isDemo: true },
+          { id: 'demo_10', type: 'expense', amount: 46.00, date: dateStr(y, m, 10), category: 'Ocio', method: 'Efectivo', person: 'Pareja', isFixed: false, description: 'Cena viernes', isDemo: true },
+          { id: 'demo_11', type: 'expense', amount: 24.30, date: dateStr(y, m, 11), category: 'Farmacia', method: 'Efectivo', person: 'Pareja', isFixed: false, description: 'Crema y vitaminas', isDemo: true },
+
+          // Mes -1 (para comparativa 6 meses)
+          { id: 'demo_m1_1', type: 'income', amount: 4100, date: dateStr(y, m - 1, 2), category: 'Nómina', method: 'CC', person: 'Tú', isFixed: false, description: 'Ingresos hogar', isDemo: true },
+          { id: 'demo_m1_2', type: 'expense', amount: 1628, date: dateStr(y, m - 1, 3), category: 'Vivienda y Vehículos', method: 'CC', person: 'Tú', isFixed: true, description: 'Hipoteca + Renting', isDemo: true },
+          { id: 'demo_m1_3', type: 'expense', amount: 790, date: dateStr(y, m - 1, 15), category: 'Supermercado', method: 'CC', person: 'Pareja', isFixed: false, description: 'Variables mes anterior', isDemo: true },
+
+          // Mes -2
+          { id: 'demo_m2_1', type: 'income', amount: 3950, date: dateStr(y, m - 2, 2), category: 'Nómina', method: 'CC', person: 'Tú', isFixed: false, description: 'Ingresos hogar', isDemo: true },
+          { id: 'demo_m2_2', type: 'expense', amount: 1628, date: dateStr(y, m - 2, 3), category: 'Vivienda y Vehículos', method: 'CC', person: 'Tú', isFixed: true, description: 'Hipoteca + Renting', isDemo: true },
+          { id: 'demo_m2_3', type: 'expense', amount: 920, date: dateStr(y, m - 2, 14), category: 'Ocio', method: 'CC', person: 'Pareja', isFixed: false, description: 'Variables hace 2 meses', isDemo: true },
+
+          // Mes -3
+          { id: 'demo_m3_1', type: 'income', amount: 4250, date: dateStr(y, m - 3, 2), category: 'Nómina', method: 'CC', person: 'Tú', isFixed: false, description: 'Ingresos hogar', isDemo: true },
+          { id: 'demo_m3_2', type: 'expense', amount: 1628, date: dateStr(y, m - 3, 3), category: 'Vivienda y Vehículos', method: 'CC', person: 'Tú', isFixed: true, description: 'Hipoteca + Renting', isDemo: true },
+          { id: 'demo_m3_3', type: 'expense', amount: 840, date: dateStr(y, m - 3, 18), category: 'Supermercado', method: 'CC', person: 'Tú', isFixed: false, description: 'Variables hace 3 meses', isDemo: true }
+        ];
+
+        return demos;
+      }
+
+      let state = {
+        movements: [],
+        expenseCategories: [...DEFAULT_EXPENSE_CATEGORIES],
+        incomeCategories: [...DEFAULT_INCOME_CATEGORIES],
+        fixedExpenses: [...DEFAULT_FIXED_EXPENSES],
+        settings: {
+          theme: 'light',
+          gasUrl: '',
+          person1: 'Tú',
+          person2: 'Pareja',
+          initialCCBalance: 2500,
+          lastSync: ''
+        },
+        selectedYear: new Date().getFullYear(),
+        selectedMonth: new Date().getMonth(), // 0-11
+        activeFilter: 'all',
+        searchQuery: '',
+        methodFilter: 'all'
+      };
+
+      let donutChartInstance = null;
+      let barChartInstance = null;
+      let ccLineChartInstance = null;
+
+      /* =========================================================================
+       * 3. PERSISTENCIA EN LOCALSTORAGE Y UTILIDADES DE FORMATO
+       * ========================================================================= */
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            state.movements = Array.isArray(parsed.movements) ? parsed.movements : [];
+            state.expenseCategories = parsed.expenseCategories?.length ? parsed.expenseCategories : [...DEFAULT_EXPENSE_CATEGORIES];
+            state.incomeCategories = parsed.incomeCategories?.length ? parsed.incomeCategories : [...DEFAULT_INCOME_CATEGORIES];
+            state.fixedExpenses = Array.isArray(parsed.fixedExpenses) ? parsed.fixedExpenses : [...DEFAULT_FIXED_EXPENSES];
+            state.settings = { ...state.settings, ...(parsed.settings || {}) };
+          } else {
+            // Primera ejecución: cargar datos demo realistas
+            state.movements = generateDemoMovements();
+            saveState();
+          }
+        } catch (e) {
+          console.error('Error cargando localStorage:', e);
+          state.movements = generateDemoMovements();
+        }
+      }
+
+      function saveState() {
+        try {
+          const toSave = {
+            movements: state.movements,
+            expenseCategories: state.expenseCategories,
+            incomeCategories: state.incomeCategories,
+            fixedExpenses: state.fixedExpenses,
+            settings: state.settings
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+        } catch (e) {
+          showToast('Error al guardar en almacenamiento local', 'error');
+        }
+      }
+
+      function formatCurrency(num) {
+        const val = Number(num) || 0;
+        return val.toLocaleString('es-ES', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }) + ' €';
+      }
+
+      function getTodayISO() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+
+      function getMonthNameES(year, monthIndex) {
+        const date = new Date(year, monthIndex, 1);
+        return date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+      }
+
+      function getCategoryMeta(type, catName) {
+        const list = type === 'income' ? state.incomeCategories : state.expenseCategories;
+        return list.find(c => c.name === catName) || { name: catName, emoji: type === 'income' ? '💰' : '📦', color: '#64748b' };
+      }
+
+      /* =========================================================================
+       * 4. SISTEMA DE NOTIFICACIONES TOAST Y MODAL DE CONFIRMACIÓN
+       * ========================================================================= */
+      function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+
+        const styles = {
+          success: 'bg-emerald-600 text-white border-emerald-500',
+          error: 'bg-rose-600 text-white border-rose-500',
+          info: 'bg-slate-900 dark:bg-slate-800 text-white border-slate-700'
+        };
+
+        const icons = { success: '✅', error: '⚠️', info: 'ℹ️' };
+
+        toast.className = `${styles[type] || styles.info} border px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm font-semibold flex items-center gap-2.5 animate-view pointer-events-auto`;
+        toast.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span class="flex-1">${message}</span>`;
+
+        container.appendChild(toast);
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(-8px)';
+          toast.style.transition = 'all 0.2s ease';
+          setTimeout(() => toast.remove(), 220);
+        }, 3000);
+      }
+
+      function showConfirm(title, message, onConfirm) {
+        const modal = document.getElementById('confirm-modal');
+        document.getElementById('confirm-title').textContent = title;
+        document.getElementById('confirm-message').textContent = message;
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        const cancelBtn = document.getElementById('confirm-cancel-btn');
+        const okBtn = document.getElementById('confirm-ok-btn');
+
+        const cleanup = () => {
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+          cancelBtn.onclick = null;
+          okBtn.onclick = null;
+        };
+
+        cancelBtn.onclick = cleanup;
+        okBtn.onclick = () => {
+          cleanup();
+          onConfirm();
+        };
+      }
+
+      /* =========================================================================
+       * 5. SINCRONIZACIÓN CON GOOGLE APPS SCRIPT (GOOGLE SHEETS)
+       * ========================================================================= */
+      function updateSyncBadge(status, text) {
+        const dot = document.getElementById('sync-dot');
+        const label = document.getElementById('sync-status-text');
+        label.textContent = text;
+
+        dot.className = 'w-2 h-2 rounded-full ';
+        if (status === 'syncing') dot.className += 'bg-amber-400 animate-ping';
+        else if (status === 'connected') dot.className += 'bg-emerald-500';
+        else if (status === 'error') dot.className += 'bg-rose-500';
+        else dot.className += 'bg-indigo-500';
+      }
+
+      async function pushMovementToSheet(action, payload) {
+        const url = state.settings.gasUrl?.trim();
+        if (!url) return;
+
+        updateSyncBadge('syncing', 'Sincronizando...');
+        try {
+          await fetch(url, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action, ...payload })
+          });
+          updateSyncBadge('connected', 'Sincronizado Sheets');
+        } catch (err) {
+          console.error('Error push Google Sheets:', err);
+          updateSyncBadge('error', 'Error de red (local ok)');
+        }
+      }
+
+      async function syncFromGoogleSheets(silent = false) {
+        const url = state.settings.gasUrl?.trim();
+        if (!url) {
+          if (!silent) showToast('Configura primero la URL de Google Apps Script en Ajustes', 'error');
+          return;
+        }
+
+        updateSyncBadge('syncing', 'Descargando...');
+        try {
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (data && data.status === 'ok' && Array.isArray(data.movements)) {
+            // Si la hoja está vacía pero tenemos datos locales no-demo, subirlos
+            const localReal = state.movements.filter(m => !m.isDemo);
+            if (data.movements.length === 0 && localReal.length > 0) {
+              await pushMovementToSheet('bulkSync', { movements: localReal });
+              if (!silent) showToast('Datos locales subidos a Google Sheets', 'success');
+            } else {
+              // Combinar movimientos remotos con los locales
+              const remoteMap = new Map();
+              data.movements.forEach(m => {
+                if (m && m.id) {
+                  remoteMap.set(String(m.id), {
+                    ...m,
+                    amount: Number(m.amount) || 0,
+                    isFixed: Boolean(m.isFixed),
+                    isDemo: false
+                  });
+                }
+              });
+
+              // Mantener cualquier movimiento local recién creado que aún no estuviera
+              localReal.forEach(m => {
+                if (!remoteMap.has(String(m.id))) {
+                  remoteMap.set(String(m.id), m);
+                  pushMovementToSheet('upsert', { movement: m });
+                }
+              });
+
+              state.movements = Array.from(remoteMap.values());
+            state.settings.lastSync = new Date().toLocaleString('es-ES', {
+              day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+            saveState();
+            renderAll();
+            if (!silent) showToast(`Sincronizado (${state.movements.length} movimientos)`, 'success');
+            }
+            updateSyncBadge('connected', 'Conectado a Sheets');
+          } else {
+            throw new Error('Respuesta no válida');
+          }
+        } catch (err) {
+          console.error('Error sincronizando con Sheets:', err);
+          updateSyncBadge('error', 'Error al sincronizar');
+          if (!silent) showToast('No se pudo conectar con Google Sheets. Revisa la URL y permisos.', 'error');
+        }
+      }
+
+      /* =========================================================================
+       * 6. NAVEGACIÓN ENTRE VISTAS Y TEMA CLARO/OSCURO
+       * ========================================================================= */
+      function applyTheme(theme) {
+        const html = document.documentElement;
+        const icon = document.getElementById('theme-icon');
+        if (theme === 'dark') {
+          html.classList.add('dark');
+          icon.textContent = '☀️';
+        } else {
+          html.classList.remove('dark');
+          icon.textContent = '🌙';
+        }
+        state.settings.theme = theme;
+        saveState();
+        renderCharts();
+      }
+
+      function switchView(viewName) {
+        const views = ['dashboard', 'add', 'fixed', 'sync', 'settings'];
+        views.forEach(v => {
+          const el = document.getElementById(`view-${v}`);
+          if (v === viewName) el.classList.remove('hidden');
+          else el.classList.add('hidden');
+        });
+
+        document.querySelectorAll('.nav-tab').forEach(btn => {
+          const target = btn.getAttribute('data-nav');
+          if (target === viewName && btn.id !== 'nav-add-btn') {
+            btn.classList.remove('text-slate-500', 'dark:text-slate-400');
+            btn.classList.add('text-indigo-600', 'dark:text-indigo-400');
+          } else if (btn.id !== 'nav-add-btn') {
+            btn.classList.add('text-slate-500', 'dark:text-slate-400');
+            btn.classList.remove('text-indigo-600', 'dark:text-indigo-400');
+          }
+        });
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        if (viewName === 'dashboard') {
+          renderDashboard();
+        } else if (viewName === 'fixed') {
+          renderFixedExpensesView();
+        } else if (viewName === 'sync') {
+          renderSyncView();
+        } else if (viewName === 'settings') {
+          renderSettingsView();
+        }
+      }
+
+      /* =========================================================================
+       * 7. RENDERIZADO DEL DASHBOARD, TARJETAS Y LISTADO DE MOVIMIENTOS
+       * ========================================================================= */
+      function getMonthMovements(year, monthIndex) {
+        const prefix = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+        return state.movements
+          .filter(m => m.date && m.date.startsWith(prefix))
+          .sort((a, b) => b.date.localeCompare(a.date));
+      }
+
+      function renderDashboard() {
+        // Actualizar etiqueta de mes
+        document.getElementById('current-month-label').textContent = getMonthNameES(state.selectedYear, state.selectedMonth);
+        document.getElementById('fixed-target-month-name').textContent = getMonthNameES(state.selectedYear, state.selectedMonth);
+
+        // Banner demo
+        const hasDemo = state.movements.some(m => m.isDemo);
+        const demoBanner = document.getElementById('demo-banner');
+        if (hasDemo) demoBanner.classList.remove('hidden');
+        else demoBanner.classList.add('hidden');
+
+        const monthMovs = getMonthMovements(state.selectedYear, state.selectedMonth);
+
+        let totalIncome = 0, incomeCC = 0, incomeCash = 0;
+        let totalExpense = 0, expenseCC = 0, expenseCash = 0;
+        let fixedExpense = 0, variableExpense = 0;
+
+        monthMovs.forEach(m => {
+          const amt = Number(m.amount) || 0;
+          if (m.type === 'income') {
+            totalIncome += amt;
+            if (m.method === 'Efectivo') incomeCash += amt;
+            else incomeCC += amt;
+          } else {
+            totalExpense += amt;
+            if (m.method === 'Efectivo') expenseCash += amt;
+            else expenseCC += amt;
+
+            if (m.isFixed) fixedExpense += amt;
+            else variableExpense += amt;
+          }
+        });
+
+        const netBalance = totalIncome - totalExpense;
+        const netEl = document.getElementById('net-balance-amount');
+        netEl.textContent = (netBalance >= 0 ? '+' : '') + formatCurrency(netBalance);
+
+        const badgeEl = document.getElementById('balance-badge');
+        if (netBalance >= 0) {
+          badgeEl.textContent = 'Superávit';
+          badgeEl.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+        } else {
+          badgeEl.textContent = 'Déficit';
+          badgeEl.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30';
+        }
+
+        document.getElementById('total-income-amount').textContent = formatCurrency(totalIncome);
+        document.getElementById('income-breakdown-sub').textContent = `CC: ${Math.round(incomeCC)} € · Efec: ${Math.round(incomeCash)} €`;
+
+        document.getElementById('total-expense-amount').textContent = formatCurrency(totalExpense);
+        document.getElementById('expense-breakdown-sub').textContent = `CC: ${Math.round(expenseCC)} € · Efec: ${Math.round(expenseCash)} €`;
+
+        document.getElementById('fixed-expense-amount').textContent = formatCurrency(fixedExpense);
+        document.getElementById('variable-expense-amount').textContent = formatCurrency(variableExpense);
+
+        renderMovementsList(monthMovs);
+        renderCharts();
+      }
+
+      function renderMovementsList(monthMovs) {
+        const listEl = document.getElementById('movements-list');
+        const q = state.searchQuery.trim().toLowerCase();
+
+        const filtered = monthMovs.filter(m => {
+          if (state.activeFilter === 'expense' && m.type !== 'expense') return false;
+          if (state.activeFilter === 'income' && m.type !== 'income') return false;
+          if (state.activeFilter === 'fixed' && !m.isFixed) return false;
+          if (state.methodFilter !== 'all' && m.method !== state.methodFilter) return false;
+
+          if (q) {
+            const hay = `${m.category} ${m.description || ''} ${m.person || ''} ${m.method}`.toLowerCase();
+            if (!hay.includes(q)) return false;
+          }
+          return true;
+        });
+
+        document.getElementById('movements-count-label').textContent = `${filtered.length} registro${filtered.length === 1 ? '' : 's'} en este mes`;
+
+        if (filtered.length === 0) {
+          listEl.innerHTML = `
+            <div class="py-10 text-center space-y-2">
+              <div class="text-3xl">📭</div>
+              <p class="text-sm font-semibold text-slate-600 dark:text-slate-300">No hay movimientos que mostrar</p>
+              <p class="text-xs text-slate-400">Pulsa el botón + inferior para registrar un gasto o ingreso.</p>
+            </div>
+          `;
+          return;
+        }
+
+        listEl.innerHTML = filtered.map(m => {
+          const catMeta = getCategoryMeta(m.type, m.category);
+          const isExpense = m.type === 'expense';
+          const amountColor = isExpense ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400';
+          const sign = isExpense ? '-' : '+';
+
+          // Formatear fecha corta (ej. 12 nov)
+          const [yy, mm, dd] = m.date.split('-');
+          const dObj = new Date(Number(yy), Number(mm) - 1, Number(dd));
+          const shortDate = dObj.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+
+          return `
+            <div class="py-3.5 flex items-center justify-between gap-3 group">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-xl shrink-0 bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60">
+                  ${catMeta.emoji}
+                </div>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="text-sm font-bold text-slate-900 dark:text-white truncate">${m.category}</span>
+                    ${m.isFixed ? '<span class="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300">FIJO</span>' : ''}
+                  </div>
+                  <p class="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    ${m.description ? m.description + ' · ' : ''}<span class="font-medium">${shortDate}</span> · ${m.method === 'Efectivo' ? '💵 Efectivo' : '🏦 CC'} · ${m.person || 'Tú'}
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="text-sm sm:text-base font-extrabold ${amountColor}">
+                  ${sign}${formatCurrency(m.amount)}
+                </span>
+                <div class="flex items-center gap-1">
+                  <button onclick="window.appActions.editMovement('${m.id}')" aria-label="Editar" class="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                    ✏️
+                  </button>
+                  <button onclick="window.appActions.deleteMovement('${m.id}')" aria-label="Eliminar" class="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      /* =========================================================================
+       * 8. GRÁFICOS INTERACTIVOS CON CHART.JS (Tendencia CC + Donut + Barras)
+       * ========================================================================= */
+      function renderCCTrendChart() {
+        const isDark = state.settings.theme === 'dark';
+        const textColor = isDark ? '#cbd5e1' : '#475569';
+        const gridColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.2)';
+
+        const initialCC = Number(state.settings.initialCCBalance) || 0;
+        document.getElementById('badge-initial-cc').textContent = formatCurrency(initialCC);
+
+        // Filtrar únicamente movimientos en Cuenta Corriente (CC)
+        const ccMovements = state.movements.filter(m => m.method === 'CC' && m.date);
+
+        // Calcular saldo actual total en CC (Saldo inicial + Ingresos CC históricos - Gastos CC históricos)
+        let totalCurrentCC = initialCC;
+        ccMovements.forEach(m => {
+          const amt = Number(m.amount) || 0;
+          if (m.type === 'income') totalCurrentCC += amt;
+          else totalCurrentCC -= amt;
+        });
+
+        const kpiEl = document.getElementById('current-cc-balance-kpi');
+        kpiEl.textContent = formatCurrency(totalCurrentCC);
+        if (totalCurrentCC >= 0) {
+          kpiEl.className = 'text-base sm:text-lg font-extrabold text-emerald-700 dark:text-emerald-300';
+        } else {
+          kpiEl.className = 'text-base sm:text-lg font-extrabold text-rose-600 dark:text-rose-400';
+        }
+
+        // Determinar rango cronológico de meses (desde el primer movimiento hasta el mes actual/seleccionado)
+        const now = new Date();
+        let minYear = state.selectedYear;
+        let minMonth = state.selectedMonth;
+        let maxYear = Math.max(now.getFullYear(), state.selectedYear);
+        let maxMonth = maxYear === now.getFullYear()
+          ? Math.max(now.getMonth(), state.selectedMonth)
+          : state.selectedMonth;
+
+        if (ccMovements.length > 0) {
+          ccMovements.forEach(m => {
+            const [yy, mm] = m.date.split('-').map(Number);
+            if (!isNaN(yy) && !isNaN(mm)) {
+              const mIdx = mm - 1;
+              if (yy < minYear || (yy === minYear && mIdx < minMonth)) {
+                minYear = yy;
+                minMonth = mIdx;
+              }
+              if (yy > maxYear || (yy === maxYear && mIdx > maxMonth)) {
+                maxYear = yy;
+                maxMonth = mIdx;
+              }
+            }
+          });
+        } else {
+          // Si no hay movimientos aún, mostrar últimos 4 meses planos con el saldo inicial
+          const dStart = new Date(maxYear, maxMonth - 3, 1);
+          minYear = dStart.getFullYear();
+          minMonth = dStart.getMonth();
+        }
+
+        const labels = [];
+        const balancePoints = [];
+        let runningBalance = initialCC;
+
+        let cursorYear = minYear;
+        let cursorMonth = minMonth;
+
+        while (cursorYear < maxYear || (cursorYear === maxYear && cursorMonth <= maxMonth)) {
+          const prefix = `${cursorYear}-${String(cursorMonth + 1).padStart(2, '0')}`;
+          const dLabel = new Date(cursorYear, cursorMonth, 1);
+          labels.push(dLabel.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }).toUpperCase());
+
+          ccMovements.forEach(m => {
+            if (m.date.startsWith(prefix)) {
+              const amt = Number(m.amount) || 0;
+              if (m.type === 'income') runningBalance += amt;
+              else runningBalance -= amt;
+            }
+          });
+
+          balancePoints.push(Math.round(runningBalance * 100) / 100);
+
+          cursorMonth++;
+          if (cursorMonth > 11) {
+            cursorMonth = 0;
+            cursorYear++;
+          }
+        }
+
+        if (ccLineChartInstance) {
+          ccLineChartInstance.destroy();
+          ccLineChartInstance = null;
+        }
+
+        const ctxLine = document.getElementById('ccTrendLineChart').getContext('2d');
+        const gradient = ctxLine.createLinearGradient(0, 0, 0, 220);
+        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
+        gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+
+        ccLineChartInstance = new Chart(ctxLine, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Saldo CC al cierre',
+              data: balancePoints,
+              borderColor: '#10b981',
+              backgroundColor: gradient,
+              borderWidth: 3,
+              fill: true,
+              tension: 0.32,
+              pointRadius: 4,
+              pointHoverRadius: 6,
+              pointBackgroundColor: '#10b981',
+              pointBorderColor: isDark ? '#0f172a' : '#ffffff',
+              pointBorderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { color: textColor, font: { size: 11, weight: '600' } }
+              },
+              y: {
+                grid: { color: gridColor },
+                ticks: {
+                  color: textColor,
+                  font: { size: 10 },
+                  callback: (val) => val.toLocaleString('es-ES') + '€'
+                }
+              }
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => ` Saldo CC: ${formatCurrency(ctx.parsed.y)}`
+                }
+              }
+            }
+          }
+        });
+      }
+
+      function renderCharts() {
+        renderCCTrendChart();
+
+        const isDark = state.settings.theme === 'dark';
+        const textColor = isDark ? '#cbd5e1' : '#475569';
+        const gridColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.2)';
+
+        // 1) GRÁFICO DONUT: Gastos por categoría del mes seleccionado
+        const monthMovs = getMonthMovements(state.selectedYear, state.selectedMonth);
+        const expenses = monthMovs.filter(m => m.type === 'expense');
+
+        const catTotals = {};
+        let totalExp = 0;
+        expenses.forEach(e => {
+          const amt = Number(e.amount) || 0;
+          catTotals[e.category] = (catTotals[e.category] || 0) + amt;
+          totalExp += amt;
+        });
+
+        document.getElementById('donut-total-badge').textContent = formatCurrency(totalExp);
+        const emptyState = document.getElementById('donut-empty-state');
+        const legendContainer = document.getElementById('donut-custom-legend');
+
+        const sortedCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+
+        if (donutChartInstance) {
+          donutChartInstance.destroy();
+          donutChartInstance = null;
+        }
+
+        if (sortedCats.length === 0) {
+          emptyState.classList.remove('hidden');
+          legendContainer.innerHTML = '';
+        } else {
+          emptyState.classList.add('hidden');
+          const labels = sortedCats.map(([name]) => name);
+          const values = sortedCats.map(([, val]) => val);
+          const colors = sortedCats.map(([name]) => getCategoryMeta('expense', name).color);
+
+          const ctxDonut = document.getElementById('categoryDonutChart').getContext('2d');
+          donutChartInstance = new Chart(ctxDonut, {
+            type: 'doughnut',
+            data: {
+              labels,
+              datasets: [{
+                data: values,
+                backgroundColor: colors,
+                borderWidth: 2,
+                borderColor: isDark ? '#0f172a' : '#ffffff',
+                hoverOffset: 6
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              cutout: '66%',
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: function (ctx) {
+                      const val = ctx.parsed || 0;
+                      const pct = totalExp > 0 ? ((val / totalExp) * 100).toFixed(1) : 0;
+                      return ` ${ctx.label}: ${formatCurrency(val)} (${pct}%)`;
+                    }
+                  }
+                }
+              }
+            }
+          });
+
+          // Leyenda interactiva compacta
+          legendContainer.innerHTML = sortedCats.map(([name, val]) => {
+            const meta = getCategoryMeta('expense', name);
+            const pct = totalExp > 0 ? Math.round((val / totalExp) * 100) : 0;
+            return `
+              <div class="flex items-center justify-between text-[11px] bg-slate-50 dark:bg-slate-800/60 px-2 py-1 rounded-lg">
+                <div class="flex items-center gap-1.5 truncate">
+                  <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${meta.color}"></span>
+                  <span class="truncate font-medium">${meta.emoji} ${name}</span>
+                </div>
+                <span class="font-bold ml-1 shrink-0">${pct}%</span>
+              </div>
+            `;
+          }).join('');
+        }
+
+        // 2) GRÁFICO DE BARRAS: Últimos 6 meses (Ingresos vs Gastos Fijos vs Gastos Variables)
+        const monthLabels = [];
+        const incomeSeries = [];
+        const fixedSeries = [];
+        const variableSeries = [];
+
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(state.selectedYear, state.selectedMonth - i, 1);
+          const y = d.getFullYear();
+          const m = d.getMonth();
+          monthLabels.push(d.toLocaleDateString('es-ES', { month: 'short' }).toUpperCase());
+
+          const movs = getMonthMovements(y, m);
+          let inc = 0, fix = 0, vari = 0;
+          movs.forEach(item => {
+            const amt = Number(item.amount) || 0;
+            if (item.type === 'income') inc += amt;
+            else if (item.isFixed) fix += amt;
+            else vari += amt;
+          });
+          incomeSeries.push(inc);
+          fixedSeries.push(fix);
+          variableSeries.push(vari);
+        }
+
+        if (barChartInstance) {
+          barChartInstance.destroy();
+          barChartInstance = null;
+        }
+
+        const ctxBar = document.getElementById('monthlyBarChart').getContext('2d');
+        barChartInstance = new Chart(ctxBar, {
+          type: 'bar',
+          data: {
+            labels: monthLabels,
+            datasets: [
+              {
+                label: 'Ingresos',
+                data: incomeSeries,
+                backgroundColor: '#10b981',
+                borderRadius: 6
+              },
+              {
+                label: 'Gastos Fijos',
+                data: fixedSeries,
+                backgroundColor: '#f59e0b',
+                borderRadius: 6
+              },
+              {
+                label: 'Gastos Variables',
+                data: variableSeries,
+                backgroundColor: '#6366f1',
+                borderRadius: 6
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { color: textColor, font: { size: 11, weight: '600' } }
+              },
+              y: {
+                beginAtZero: true,
+                grid: { color: gridColor },
+                ticks: {
+                  color: textColor,
+                  font: { size: 10 },
+                  callback: (val) => val + '€'
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { color: textColor, boxWidth: 10, font: { size: 11 } }
+              },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => ` ${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`
+                }
+              }
+            }
+          }
+        });
+      }
+
+      /* =========================================================================
+       * 9. FORMULARIO REGISTRO ULTRARRÁPIDO (ALTA / EDICIÓN)
+       * ========================================================================= */
+      function populateCategorySelect(type, selectedCat = null) {
+        const select = document.getElementById('movement-category');
+        const list = type === 'income' ? state.incomeCategories : state.expenseCategories;
+
+        select.innerHTML = list.map(c =>
+          `<option value="${c.name}" ${selectedCat === c.name ? 'selected' : ''}>${c.emoji} ${c.name}</option>`
+        ).join('');
+      }
+
+      function setMovementFormType(type) {
+        document.getElementById('movement-type').value = type;
+        const expBtn = document.getElementById('type-expense-btn');
+        const incBtn = document.getElementById('type-income-btn');
+
+        if (type === 'expense') {
+          expBtn.className = 'py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-rose-600 text-white shadow-md transition';
+          incBtn.className = 'py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 text-slate-600 dark:text-slate-300 transition';
+        } else {
+          incBtn.className = 'py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-emerald-600 text-white shadow-md transition';
+          expBtn.className = 'py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 text-slate-600 dark:text-slate-300 transition';
+        }
+        populateCategorySelect(type);
+      }
+
+      function selectPersonButton(personValue) {
+        document.getElementById('movement-person').value = personValue;
+        document.querySelectorAll('.person-btn').forEach(btn => {
+          if (btn.getAttribute('data-person') === personValue) {
+            btn.className = 'person-btn py-2.5 px-3 rounded-2xl text-xs font-bold border-2 border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 transition';
+          } else {
+            btn.className = 'person-btn py-2.5 px-3 rounded-2xl text-xs font-bold border-2 border-transparent bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 transition';
+          }
+        });
+      }
+
+      function resetMovementForm() {
+        document.getElementById('edit-movement-id').value = '';
+        document.getElementById('form-view-title').textContent = 'Registrar Movimiento';
+        document.getElementById('save-btn-text').textContent = 'Guardar Movimiento';
+        document.getElementById('cancel-edit-btn').classList.add('hidden');
+        document.getElementById('movement-amount').value = '';
+        document.getElementById('movement-date').value = getTodayISO();
+        document.getElementById('movement-method').value = 'CC';
+        document.getElementById('movement-desc').value = '';
+        setMovementFormType('expense');
+        selectPersonButton(state.settings.person1 || 'Tú');
+      }
+
+      function handleMovementSubmit(e) {
+        e.preventDefault();
+        const editId = document.getElementById('edit-movement-id').value;
+        const type = document.getElementById('movement-type').value;
+        const amount = parseFloat(document.getElementById('movement-amount').value);
+        const date = document.getElementById('movement-date').value;
+        const category = document.getElementById('movement-category').value;
+        const method = document.getElementById('movement-method').value;
+        const personRaw = document.getElementById('movement-person').value;
+        const person = personRaw === 'Pareja' ? (state.settings.person2 || 'Pareja') : (state.settings.person1 || 'Tú');
+        const description = document.getElementById('movement-desc').value.trim();
+
+        if (!amount || amount <= 0 || !date) {
+          showToast('Introduce un importe válido y una fecha', 'error');
+          return;
+        }
+
+        // Si se está editando un movimiento que ya era fijo, conservar su estado isFixed
+        const existingMov = editId ? state.movements.find(m => m.id === editId) : null;
+        const isFixed = existingMov ? Boolean(existingMov.isFixed) : false;
+
+        const movementObj = {
+          id: editId || 'mov_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          type,
+          amount: Math.round(amount * 100) / 100,
+          date,
+          category,
+          method,
+          person,
+          isFixed,
+          description,
+          isDemo: false
+        };
+
+        if (editId) {
+          const idx = state.movements.findIndex(m => m.id === editId);
+          if (idx !== -1) state.movements[idx] = movementObj;
+          showToast('Movimiento actualizado', 'success');
+        } else {
+          state.movements.push(movementObj);
+          showToast(`${type === 'income' ? 'Ingreso' : 'Gasto'} guardado (${formatCurrency(amount)})`, 'success');
+        }
+
+        // Navegar automáticamente al mes del movimiento registrado
+        const [yy, mm] = date.split('-');
+        state.selectedYear = Number(yy);
+        state.selectedMonth = Number(mm) - 1;
+
+        saveState();
+        pushMovementToSheet('upsert', { movement: movementObj });
+        resetMovementForm();
+        switchView('dashboard');
+      }
+
+      /* =========================================================================
+       * 10. GESTIÓN DE GASTOS FIJOS RECURRENTES
+       * ========================================================================= */
+      function renderFixedExpensesView() {
+        const listEl = document.getElementById('fixed-expenses-list');
+        const catSelect = document.getElementById('fixed-category');
+
+        catSelect.innerHTML = state.expenseCategories.map(c =>
+          `<option value="${c.name}">${c.emoji} ${c.name}</option>`
+        ).join('');
+
+        const total = state.fixedExpenses.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+        document.getElementById('configured-fixed-total').textContent = formatCurrency(total);
+
+        if (state.fixedExpenses.length === 0) {
+          listEl.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">No hay gastos fijos configurados.</p>`;
+          return;
+        }
+
+        listEl.innerHTML = state.fixedExpenses.map(item => {
+          const meta = getCategoryMeta('expense', item.category);
+          return `
+            <div class="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/60">
+              <div class="flex items-center gap-3">
+                <span class="text-xl">${meta.emoji}</span>
+                <div>
+                  <div class="text-sm font-bold">${item.name}</div>
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400">${item.category} · Cuenta Corriente</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-extrabold text-amber-600 dark:text-amber-400">${formatCurrency(item.amount)}</span>
+                <button onclick="window.appActions.editFixed('${item.id}')" class="p-1.5 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 text-xs">✏️</button>
+                <button onclick="window.appActions.deleteFixed('${item.id}')" class="p-1.5 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 text-xs">🗑️</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function applyFixedExpensesToSelectedMonth() {
+        if (state.fixedExpenses.length === 0) {
+          showToast('No tienes gastos fijos configurados', 'error');
+          return;
+        }
+
+        const monthMovs = getMonthMovements(state.selectedYear, state.selectedMonth);
+        const dateStr = `${state.selectedYear}-${String(state.selectedMonth + 1).padStart(2, '0')}-01`;
+        let addedCount = 0;
+
+        state.fixedExpenses.forEach(fix => {
+          // Evitar duplicados si ya se aplicó este gasto fijo en el mes seleccionado
+          const alreadyExists = monthMovs.some(m =>
+            m.isFixed && (m.fixedRefId === fix.id || m.description?.toLowerCase() === fix.name.toLowerCase())
+          );
+
+          if (!alreadyExists) {
+            const newMov = {
+              id: 'mov_fix_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+              type: 'expense',
+              amount: Number(fix.amount),
+              date: dateStr,
+              category: fix.category,
+              method: fix.method || 'CC',
+              person: state.settings.person1 || 'Tú',
+              isFixed: true,
+              fixedRefId: fix.id,
+              description: fix.name,
+              isDemo: false
+            };
+            state.movements.push(newMov);
+            pushMovementToSheet('upsert', { movement: newMov });
+            addedCount++;
+          }
+        });
+
+        if (addedCount > 0) {
+          saveState();
+          renderAll();
+          showToast(`Se han aplicado ${addedCount} gasto(s) fijo(s) al mes`, 'success');
+        } else {
+          showToast('Los gastos fijos ya estaban aplicados en este mes', 'info');
+        }
+      }
+
+      /* =========================================================================
+       * 11. VISTAS SEPARADAS: SYNC/CSV Y AJUSTES (SALDO CC, NOMBRES, CATEGORÍAS)
+       * ========================================================================= */
+      function renderSyncView() {
+        document.getElementById('gas-url-input').value = state.settings.gasUrl || '';
+        document.getElementById('last-sync-timestamp').textContent = state.settings.lastSync || 'Sin sincronizar aún';
+      }
+
+      function renderSettingsView() {
+        document.getElementById('setting-initial-cc').value = state.settings.initialCCBalance ?? 0;
+        document.getElementById('setting-person1').value = state.settings.person1 || 'Tú';
+        document.getElementById('setting-person2').value = state.settings.person2 || 'Pareja';
+
+        const expContainer = document.getElementById('expense-categories-list');
+        expContainer.innerHTML = state.expenseCategories.map((c, idx) => `
+          <div class="flex items-center justify-between px-3 py-2 rounded-2xl bg-slate-100 dark:bg-slate-800/80 text-xs font-semibold">
+            <span class="truncate">${c.emoji} ${c.name}</span>
+            <div class="flex items-center gap-1 shrink-0">
+              <button type="button" onclick="window.appActions.editCategory('expense', ${idx})" aria-label="Editar categoría" class="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-500 hover:text-indigo-600 transition">✏️</button>
+              ${state.expenseCategories.length > 1 ? `<button type="button" onclick="window.appActions.deleteCategory('expense', ${idx})" aria-label="Eliminar categoría" class="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-500 hover:text-rose-600 transition">🗑️</button>` : ''}
+            </div>
+          </div>
+        `).join('');
+
+        const incContainer = document.getElementById('income-categories-list');
+        incContainer.innerHTML = state.incomeCategories.map((c, idx) => `
+          <div class="flex items-center justify-between px-3 py-2 rounded-2xl bg-slate-100 dark:bg-slate-800/80 text-xs font-semibold">
+            <span class="truncate">${c.emoji} ${c.name}</span>
+            <div class="flex items-center gap-1 shrink-0">
+              <button type="button" onclick="window.appActions.editCategory('income', ${idx})" aria-label="Editar categoría" class="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-500 hover:text-indigo-600 transition">✏️</button>
+              ${state.incomeCategories.length > 1 ? `<button type="button" onclick="window.appActions.deleteCategory('income', ${idx})" aria-label="Eliminar categoría" class="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-500 hover:text-rose-600 transition">🗑️</button>` : ''}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      function resetCategoryForm() {
+        document.getElementById('edit-cat-type').value = '';
+        document.getElementById('edit-cat-index').value = '';
+        document.getElementById('cat-form-title').textContent = 'Nueva Categoría';
+        document.getElementById('save-cat-btn').textContent = '+ Añadir';
+        document.getElementById('cancel-cat-edit-btn').classList.add('hidden');
+        document.getElementById('new-cat-type').disabled = false;
+        document.getElementById('new-cat-emoji').value = '🏷️';
+        document.getElementById('new-cat-name').value = '';
+      }
+
+      function updatePersonLabels() {
+        document.getElementById('label-person-1').textContent = state.settings.person1 || 'Tú';
+        document.getElementById('label-person-2').textContent = state.settings.person2 || 'Pareja';
+      }
+
+      function downloadFile(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      function exportCSV(onlyCurrentMonth = false) {
+        const list = onlyCurrentMonth
+          ? getMonthMovements(state.selectedYear, state.selectedMonth)
+          : [...state.movements].sort((a, b) => b.date.localeCompare(a.date));
+
+        if (list.length === 0) {
+          showToast('No hay movimientos para exportar', 'error');
+          return;
+        }
+
+        // BOM UTF-8 para que Excel/Numbers en iOS/Mac abra acentos y € correctamente
+        const BOM = '\uFEFF';
+        const headers = ['Fecha', 'Tipo', 'Importe (€)', 'Categoría', 'Método', 'Naturaleza', 'Registrado por', 'Descripción'];
+        const rows = list.map(m => [
+          m.date,
+          m.type === 'income' ? 'Ingreso' : 'Gasto',
+          String(m.amount).replace('.', ','),
+          `"${(m.category || '').replace(/"/g, '""')}"`,
+          m.method,
+          m.isFixed ? 'Fijo' : 'Variable',
+          `"${(m.person || '').replace(/"/g, '""')}"`,
+          `"${(m.description || '').replace(/"/g, '""')}"`
+        ].join(';'));
+
+        const csvContent = BOM + [headers.join(';'), ...rows].join('\n');
+        const suffix = onlyCurrentMonth
+          ? `${state.selectedYear}-${String(state.selectedMonth + 1).padStart(2, '0')}`
+          : 'historico_completo';
+
+        downloadFile(csvContent, `finanzas_hogar_${suffix}.csv`, 'text/csv;charset=utf-8;');
+        showToast('CSV exportado correctamente', 'success');
+      }
+
+      function exportJSONBackup() {
+        const backup = {
+          exportedAt: new Date().toISOString(),
+          app: 'Finanzas Hogar PWA',
+          data: {
+            movements: state.movements,
+            expenseCategories: state.expenseCategories,
+            incomeCategories: state.incomeCategories,
+            fixedExpenses: state.fixedExpenses,
+            settings: state.settings
+          }
+        };
+        const dateTag = getTodayISO();
+        downloadFile(JSON.stringify(backup, null, 2), `backup_finanzas_hogar_${dateTag}.json`, 'application/json');
+        showToast('Copia JSON descargada (lista para Google Drive)', 'success');
+      }
+
+      function importJSONBackup(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          try {
+            const parsed = JSON.parse(e.target.result);
+            const data = parsed.data || parsed;
+            if (!Array.isArray(data.movements)) {
+              throw new Error('Formato de copia no válido');
+            }
+            state.movements = data.movements;
+            if (Array.isArray(data.expenseCategories)) state.expenseCategories = data.expenseCategories;
+            if (Array.isArray(data.incomeCategories)) state.incomeCategories = data.incomeCategories;
+            if (Array.isArray(data.fixedExpenses)) state.fixedExpenses = data.fixedExpenses;
+            if (data.settings) state.settings = { ...state.settings, ...data.settings };
+
+            saveState();
+            renderAll();
+            showToast(`Copia restaurada (${state.movements.length} movimientos)`, 'success');
+          } catch (err) {
+            showToast('Error al leer el archivo JSON de respaldo', 'error');
+          }
+        };
+        reader.readAsText(file);
+      }
+
+      /* =========================================================================
+       * 12. ACCIONES GLOBALES EXPUESTAS PARA BOTONES DINÁMICOS
+       * ========================================================================= */
+      window.appActions = {
+        editMovement: function (id) {
+          const mov = state.movements.find(m => m.id === id);
+          if (!mov) return;
+
+          switchView('add');
+          document.getElementById('edit-movement-id').value = mov.id;
+          document.getElementById('form-view-title').textContent = 'Editar Movimiento';
+          document.getElementById('save-btn-text').textContent = 'Actualizar Movimiento';
+          document.getElementById('cancel-edit-btn').classList.remove('hidden');
+
+          setMovementFormType(mov.type);
+          document.getElementById('movement-amount').value = mov.amount;
+          document.getElementById('movement-date').value = mov.date;
+          populateCategorySelect(mov.type, mov.category);
+          document.getElementById('movement-method').value = mov.method || 'CC';
+          document.getElementById('movement-desc').value = mov.description || '';
+
+          const isP2 = mov.person === (state.settings.person2 || 'Pareja');
+          selectPersonButton(isP2 ? 'Pareja' : 'Tú');
+        },
+
+        deleteMovement: function (id) {
+          showConfirm('Eliminar movimiento', '¿Seguro que quieres borrar este movimiento?', () => {
+            state.movements = state.movements.filter(m => m.id !== id);
+            saveState();
+            pushMovementToSheet('delete', { id });
+            renderAll();
+            showToast('Movimiento eliminado', 'info');
+          });
+        },
+
+        editFixed: function (id) {
+          const item = state.fixedExpenses.find(f => f.id === id);
+          if (!item) return;
+          document.getElementById('edit-fixed-id').value = item.id;
+          document.getElementById('fixed-form-title').textContent = `Editando "${item.name}"`;
+          document.getElementById('save-fixed-btn').textContent = 'Actualizar Gasto Fijo';
+          document.getElementById('cancel-fixed-edit-btn').classList.remove('hidden');
+          document.getElementById('fixed-name').value = item.name;
+          document.getElementById('fixed-amount').value = item.amount;
+          document.getElementById('fixed-category').value = item.category;
+        },
+
+        deleteFixed: function (id) {
+          showConfirm('Eliminar gasto fijo', 'Se quitará de tu plantilla de gastos fijos mensuales.', () => {
+            state.fixedExpenses = state.fixedExpenses.filter(f => f.id !== id);
+            saveState();
+            renderFixedExpensesView();
+            showToast('Gasto fijo eliminado', 'info');
+          });
+        },
+
+        editCategory: function (type, index) {
+          const list = type === 'expense' ? state.expenseCategories : state.incomeCategories;
+          const cat = list[index];
+          if (!cat) return;
+
+          document.getElementById('edit-cat-type').value = type;
+          document.getElementById('edit-cat-index').value = index;
+          document.getElementById('cat-form-title').textContent = `Editando "${cat.name}"`;
+          document.getElementById('save-cat-btn').textContent = 'Guardar';
+          document.getElementById('cancel-cat-edit-btn').classList.remove('hidden');
+
+          const typeSel = document.getElementById('new-cat-type');
+          typeSel.value = type;
+          typeSel.disabled = true;
+          document.getElementById('new-cat-emoji').value = cat.emoji;
+          document.getElementById('new-cat-name').value = cat.name;
+          document.getElementById('new-cat-name').focus();
+        },
+
+        deleteCategory: function (type, index) {
+          showConfirm('Eliminar categoría', '¿Seguro que quieres eliminar esta categoría? Los movimientos pasados conservarán su etiqueta.', () => {
+            if (type === 'expense') state.expenseCategories.splice(index, 1);
+            else state.incomeCategories.splice(index, 1);
+            saveState();
+            renderSettingsView();
+            populateCategorySelect(document.getElementById('movement-type').value);
+            showToast('Categoría eliminada', 'info');
+          });
+        }
+      };
+
+      function resetFixedForm() {
+        document.getElementById('edit-fixed-id').value = '';
+        document.getElementById('fixed-form-title').textContent = 'Añadir Gasto Fijo';
+        document.getElementById('save-fixed-btn').textContent = '+ Guardar Gasto Fijo';
+        document.getElementById('cancel-fixed-edit-btn').classList.add('hidden');
+        document.getElementById('fixed-name').value = '';
+        document.getElementById('fixed-amount').value = '';
+      }
+
+      function renderAll() {
+        updatePersonLabels();
+        renderDashboard();
+        renderFixedExpensesView();
+        renderSyncView();
+        renderSettingsView();
+      }
+
+      /* =========================================================================
+       * 13. INICIALIZACIÓN Y EVENT LISTENERS
+       * ========================================================================= */
+      function initEventListeners() {
+        // Navegación inferior
+        document.querySelectorAll('.nav-tab').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const target = btn.getAttribute('data-nav');
+            if (target === 'add') resetMovementForm();
+            switchView(target);
+          });
+        });
+
+        // Navegación de meses
+        document.getElementById('prev-month-btn').addEventListener('click', () => {
+          state.selectedMonth--;
+          if (state.selectedMonth < 0) {
+            state.selectedMonth = 11;
+            state.selectedYear--;
+          }
+          renderDashboard();
+        });
+
+        document.getElementById('next-month-btn').addEventListener('click', () => {
+          state.selectedMonth++;
+          if (state.selectedMonth > 11) {
+            state.selectedMonth = 0;
+            state.selectedYear++;
+          }
+          renderDashboard();
+        });
+
+        // Tema oscuro / claro
+        document.getElementById('theme-toggle-btn').addEventListener('click', () => {
+          const nextTheme = state.settings.theme === 'dark' ? 'light' : 'dark';
+          applyTheme(nextTheme);
+        });
+
+        // Borrar datos demo
+        document.getElementById('clear-demo-btn').addEventListener('click', () => {
+          showConfirm('Borrar datos de prueba', 'Se eliminarán todos los movimientos de demostración y quedará tu lista limpia.', () => {
+            state.movements = state.movements.filter(m => !m.isDemo);
+            saveState();
+            renderAll();
+            showToast('Datos de prueba eliminados. ¡Listo para tus registros reales!', 'success');
+          });
+        });
+
+        // Acceso rápido desde el gráfico de tendencia CC hacia Ajustes (Saldo Inicial CC)
+        document.getElementById('jump-initial-cc-btn').addEventListener('click', () => {
+          switchView('settings');
+          setTimeout(() => document.getElementById('setting-initial-cc').focus(), 150);
+        });
+
+        // Filtros listado
+        document.querySelectorAll('.filter-chip').forEach(chip => {
+          chip.addEventListener('click', () => {
+            document.querySelectorAll('.filter-chip').forEach(c => {
+              c.className = 'filter-chip px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 transition';
+            });
+            chip.className = 'filter-chip active px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 text-white dark:bg-indigo-600 transition';
+            state.activeFilter = chip.getAttribute('data-filter');
+            renderDashboard();
+          });
+        });
+
+        document.getElementById('search-input').addEventListener('input', (e) => {
+          state.searchQuery = e.target.value;
+          renderDashboard();
+        });
+
+        document.getElementById('method-filter-select').addEventListener('change', (e) => {
+          state.methodFilter = e.target.value;
+          renderDashboard();
+        });
+
+        // Formulario Nuevo / Editar Movimiento
+        document.getElementById('type-expense-btn').addEventListener('click', () => setMovementFormType('expense'));
+        document.getElementById('type-income-btn').addEventListener('click', () => setMovementFormType('income'));
+
+        document.getElementById('date-today-btn').addEventListener('click', () => {
+          document.getElementById('movement-date').value = getTodayISO();
+        });
+
+        document.querySelectorAll('.person-btn').forEach(btn => {
+          btn.addEventListener('click', () => selectPersonButton(btn.getAttribute('data-person')));
+        });
+
+        document.getElementById('cancel-edit-btn').addEventListener('click', () => {
+          resetMovementForm();
+          switchView('dashboard');
+        });
+
+        document.getElementById('movement-form').addEventListener('submit', handleMovementSubmit);
+
+        // Gastos Fijos
+        document.getElementById('quick-apply-fixed-btn').addEventListener('click', applyFixedExpensesToSelectedMonth);
+        document.getElementById('apply-fixed-view-btn').addEventListener('click', applyFixedExpensesToSelectedMonth);
+        document.getElementById('cancel-fixed-edit-btn').addEventListener('click', resetFixedForm);
+
+        document.getElementById('fixed-form').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const editId = document.getElementById('edit-fixed-id').value;
+          const name = document.getElementById('fixed-name').value.trim();
+          const amount = parseFloat(document.getElementById('fixed-amount').value);
+          const category = document.getElementById('fixed-category').value;
+
+          if (!name || !amount || amount <= 0) return;
+
+          if (editId) {
+            const idx = state.fixedExpenses.findIndex(f => f.id === editId);
+            if (idx !== -1) {
+              state.fixedExpenses[idx] = { ...state.fixedExpenses[idx], name, amount, category };
+            }
+            showToast('Gasto fijo actualizado', 'success');
+          } else {
+            state.fixedExpenses.push({
+              id: 'fix_' + Date.now(),
+              name,
+              amount: Math.round(amount * 100) / 100,
+              category,
+              method: 'CC'
+            });
+            showToast('Gasto fijo añadido', 'success');
+          }
+
+          saveState();
+          resetFixedForm();
+          renderFixedExpensesView();
+        });
+
+        // Sync / CSV: Google Apps Script
+        document.getElementById('save-gas-url-btn').addEventListener('click', () => {
+          const url = document.getElementById('gas-url-input').value.trim();
+          state.settings.gasUrl = url;
+          saveState();
+          if (url) {
+            showToast('URL guardada. Sincronizando...', 'success');
+            syncFromGoogleSheets(false);
+          } else {
+            updateSyncBadge('local', 'Modo local');
+            showToast('URL eliminada (modo local)', 'info');
+          }
+        });
+
+        document.getElementById('sync-now-btn').addEventListener('click', () => syncFromGoogleSheets(false));
+
+        document.getElementById('toggle-gas-guide-btn').addEventListener('click', () => {
+          document.getElementById('gas-guide-box').classList.toggle('hidden');
+        });
+
+        document.getElementById('copy-gas-code-btn').addEventListener('click', () => {
+          const codeText = document.getElementById('gas-script-code').textContent;
+          const tempArea = document.createElement('textarea');
+          tempArea.value = codeText;
+          document.body.appendChild(tempArea);
+          tempArea.select();
+          try {
+            document.execCommand('copy');
+            showToast('Código Apps Script copiado al portapapeles', 'success');
+          } catch (err) {
+            showToast('Selecciona el texto y cópialo manualmente', 'error');
+          }
+          document.body.removeChild(tempArea);
+        });
+
+        // Ajustes: Saldo Inicial CC
+        document.getElementById('save-initial-cc-btn').addEventListener('click', () => {
+          const val = parseFloat(document.getElementById('setting-initial-cc').value);
+          state.settings.initialCCBalance = isNaN(val) ? 0 : Math.round(val * 100) / 100;
+          saveState();
+          renderDashboard();
+          showToast(`Saldo inicial en CC actualizado (${formatCurrency(state.settings.initialCCBalance)})`, 'success');
+        });
+
+        // Ajustes: Nombres de pareja
+        document.getElementById('save-names-btn').addEventListener('click', () => {
+          const oldP1 = state.settings.person1 || 'Tú';
+          const oldP2 = state.settings.person2 || 'Pareja';
+          const newP1 = document.getElementById('setting-person1').value.trim() || 'Tú';
+          const newP2 = document.getElementById('setting-person2').value.trim() || 'Pareja';
+
+          // Actualizar también los registros existentes con los nuevos nombres
+          state.movements.forEach(m => {
+            if (m.person === oldP1) m.person = newP1;
+            else if (m.person === oldP2) m.person = newP2;
+          });
+
+          state.settings.person1 = newP1;
+          state.settings.person2 = newP2;
+          saveState();
+          renderAll();
+          showToast('Nombres actualizados', 'success');
+        });
+
+        // Ajustes: Categorías (Crear y Editar)
+        document.getElementById('cancel-cat-edit-btn').addEventListener('click', resetCategoryForm);
+
+        document.getElementById('category-form').addEventListener('submit', (e) => {
+          e.preventDefault();
+          const editType = document.getElementById('edit-cat-type').value;
+          const editIndex = document.getElementById('edit-cat-index').value;
+          const type = editType || document.getElementById('new-cat-type').value;
+          const emoji = document.getElementById('new-cat-emoji').value.trim() || '🏷️';
+          const name = document.getElementById('new-cat-name').value.trim();
+          if (!name) return;
+
+          const list = type === 'income' ? state.incomeCategories : state.expenseCategories;
+
+          if (editType !== '' && editIndex !== '') {
+            const idx = Number(editIndex);
+            const oldName = list[idx]?.name;
+            if (list[idx]) {
+              list[idx] = { ...list[idx], name, emoji };
+              // Renombrar la categoría en movimientos existentes y gastos fijos
+              if (oldName && oldName !== name) {
+                state.movements.forEach(m => {
+                  if (m.type === type && m.category === oldName) m.category = name;
+                });
+                if (type === 'expense') {
+                  state.fixedExpenses.forEach(f => {
+                    if (f.category === oldName) f.category = name;
+                  });
+                }
+              }
+              showToast(`Categoría actualizada a "${name}"`, 'success');
+            }
+            resetCategoryForm();
+          } else {
+            if (list.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+              showToast('Esa categoría ya existe', 'error');
+              return;
+            }
+            const palette = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6', '#14b8a6', '#f97316'];
+            const color = palette[Math.floor(Math.random() * palette.length)];
+            list.push({ name, emoji, color });
+            document.getElementById('new-cat-name').value = '';
+            showToast(`Categoría "${name}" añadida`, 'success');
+          }
+
+          saveState();
+          renderAll();
+          populateCategorySelect(document.getElementById('movement-type').value);
+        });
+
+        // Sync / CSV: Borrar demo y Resetear todo
+        document.getElementById('sync-clear-demo-btn').addEventListener('click', () => {
+          showConfirm('Borrar datos de prueba', 'Se eliminarán todos los movimientos de demostración.', () => {
+            state.movements = state.movements.filter(m => !m.isDemo);
+            saveState();
+            renderAll();
+            showToast('Datos de prueba eliminados', 'success');
+          });
+        });
+
+        document.getElementById('reset-all-data-btn').addEventListener('click', () => {
+          showConfirm('Resetear todos los datos', 'Se borrarán todos tus movimientos locales. Asegúrate de tener un backup JSON o sincronizado en Sheets.', () => {
+            state.movements = [];
+            saveState();
+            renderAll();
+            showToast('Movimientos locales vaciados', 'info');
+          });
+        });
+
+        // Exportar / Importar
+        document.getElementById('export-csv-month-btn').addEventListener('click', () => exportCSV(true));
+        document.getElementById('export-csv-all-btn').addEventListener('click', () => exportCSV(false));
+        document.getElementById('export-json-btn').addEventListener('click', exportJSONBackup);
+        document.getElementById('import-json-input').addEventListener('change', (e) => {
+          importJSONBackup(e.target.files[0]);
+          e.target.value = '';
+        });
+      }
+
+      // Arranque de la aplicación
+      window.addEventListener('DOMContentLoaded', () => {
+        setupPWA();
+        loadState();
+        applyTheme(state.settings.theme || 'light');
+        initEventListeners();
+        resetMovementForm();
+        renderAll();
+
+        if (state.settings.gasUrl) {
+          syncFromGoogleSheets(true);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
