@@ -768,25 +768,65 @@ function getOrCreateSheet() {
       'use strict';
 
       /* =========================================================================
-       * 1. CONFIGURACIÓN PWA DINÁMICA PARA iPHONE (Icono SVG + Manifest Blob)
+       * 1. CONFIGURACIÓN PWA DINÁMICA PARA iPHONE (Icono PNG real + Manifest)
        * ========================================================================= */
       function setupPWA() {
-        const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-          <defs>
-            <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stop-color="#4f46e5"/>
-              <stop offset="100%" stop-color="#7c3aed"/>
-            </linearGradient>
-          </defs>
-          <rect width="512" height="512" rx="115" fill="url(#g)"/>
-          <path d="M256 112L104 236h44v152h84v-96h48v96h84V236h44L256 112z" fill="#ffffff"/>
-          <circle cx="376" cy="144" r="46" fill="#10b981"/>
-          <text x="376" y="160" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#ffffff" text-anchor="middle">€</text>
-        </svg>`;
+        // iOS Safari requiere un PNG real (no SVG) para el icono de pantalla de inicio
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
 
-        const encodedSvg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgIcon);
-        document.getElementById('ios-icon').setAttribute('href', encodedSvg);
-        document.getElementById('favicon-icon').setAttribute('href', encodedSvg);
+        // Fondo degradado morado/índigo (sin esquinas transparentes porque iOS las rellena de negro)
+        const grad = ctx.createLinearGradient(0, 0, 512, 512);
+        grad.addColorStop(0, '#4f46e5');
+        grad.addColorStop(1, '#7c3aed');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 512, 512);
+
+        // Brillo sutil superior
+        const glow = ctx.createRadialGradient(140, 110, 20, 140, 110, 340);
+        glow.addColorStop(0, 'rgba(255, 255, 255, 0.18)');
+        glow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, 512, 512);
+
+        // Dibujar casita blanca centrada
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.moveTo(256, 118); // Pico del tejado
+        ctx.lineTo(104, 240); // Alero izquierdo
+        ctx.lineTo(148, 240);
+        ctx.lineTo(148, 392); // Pared izquierda
+        ctx.lineTo(232, 392);
+        ctx.lineTo(232, 298); // Puerta izquierda
+        ctx.lineTo(280, 298); // Puerta derecha
+        ctx.lineTo(280, 392);
+        ctx.lineTo(364, 392); // Pared derecha
+        ctx.lineTo(364, 240);
+        ctx.lineTo(408, 240); // Alero derecho
+        ctx.closePath();
+        ctx.fill();
+
+        // Insignia verde con símbolo €
+        ctx.beginPath();
+        ctx.arc(378, 148, 52, 0, Math.PI * 2);
+        ctx.fillStyle = '#10b981';
+        ctx.fill();
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = '#5b21b6';
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 58px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('€', 378, 152);
+
+        const pngDataUrl = canvas.toDataURL('image/png');
+        document.getElementById('ios-icon').setAttribute('href', pngDataUrl);
+        document.getElementById('favicon-icon').setAttribute('type', 'image/png');
+        document.getElementById('favicon-icon').setAttribute('href', pngDataUrl);
 
         const manifest = {
           name: 'Finanzas Hogar · Pareja',
@@ -797,10 +837,10 @@ function getOrCreateSheet() {
           theme_color: '#4f46e5',
           icons: [
             {
-              src: encodedSvg,
+              src: pngDataUrl,
               sizes: '512x512',
-              type: 'image/svg+xml',
-              purpose: 'any maskable'
+              type: 'image/png',
+              purpose: 'any'
             }
           ]
         };
