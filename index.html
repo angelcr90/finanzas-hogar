@@ -525,14 +525,19 @@
             <pre id="gas-script-code" class="text-[10px] font-mono bg-slate-950 p-3 rounded-xl overflow-x-auto text-emerald-300 border border-slate-800 select-all">function doGet(e) {
   var sheet = getOrCreateSheet();
   var data = sheet.getDataRange().getValues();
+  var tz = Session.getScriptTimeZone();
   var rows = [];
   for (var i = 1; i &lt; data.length; i++) {
     if (!data[i][0]) continue;
+    var rawDate = data[i][3];
+    var formattedDate = (rawDate instanceof Date)
+      ? Utilities.formatDate(rawDate, tz, 'yyyy-MM-dd')
+      : String(rawDate).slice(0, 10);
     rows.push({
       id: String(data[i][0]),
       type: String(data[i][1]),
       amount: Number(data[i][2]),
-      date: String(data[i][3]),
+      date: formattedDate,
       category: String(data[i][4]),
       method: String(data[i][5]),
       person: String(data[i][6]),
@@ -1008,6 +1013,25 @@ function getOrCreateSheet() {
         return `${y}-${m}-${d}`;
       }
 
+      // Normaliza fechas procedentes de Google Sheets (ej. "Mon Nov 16 2026..." o ISO) a "YYYY-MM-DD"
+      function normalizeSheetDate(raw) {
+        if (!raw) return getTodayISO();
+        const str = String(raw).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+        if (/^\d{4}-\d{2}-\d{2}T/.test(str)) {
+          const dIso = new Date(str);
+          if (!isNaN(dIso.getTime())) {
+            return `${dIso.getFullYear()}-${String(dIso.getMonth() + 1).padStart(2, '0')}-${String(dIso.getDate()).padStart(2, '0')}`;
+          }
+          return str.slice(0, 10);
+        }
+        const parsed = new Date(str);
+        if (!isNaN(parsed.getTime())) {
+          return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+        }
+        return str;
+      }
+
       function getMonthNameES(year, monthIndex) {
         const date = new Date(year, monthIndex, 1);
         return date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
@@ -1129,6 +1153,7 @@ function getOrCreateSheet() {
                 if (m && m.id) {
                   remoteMap.set(String(m.id), {
                     ...m,
+                    date: normalizeSheetDate(m.date),
                     amount: Number(m.amount) || 0,
                     isFixed: Boolean(m.isFixed),
                     isDemo: false
