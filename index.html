@@ -282,6 +282,52 @@
         </div>
       </div>
 
+      <!-- Gráfico 3: Evolución por Categoría (6 meses + Media Mensual) -->
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div>
+            <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100">Evolución por Categoría (6 meses)</h2>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">
+              Media mensual: <strong id="cat-trend-avg-label" class="text-slate-700 dark:text-slate-200">0,00 €</strong>
+            </p>
+          </div>
+          <select id="cat-trend-select" aria-label="Seleccionar categoría para evolución"
+            class="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-xs font-bold outline-none focus:border-indigo-500">
+            <!-- Poblado dinámicamente -->
+          </select>
+        </div>
+        <div class="relative h-56 w-full">
+          <canvas id="categoryTrendChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Presupuestos Mensuales (Visible si hay presupuestos configurados) -->
+      <div id="budgets-dashboard-card" class="hidden bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3.5">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100">🎯 Control de Presupuestos del Mes</h2>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">Topes mensuales configurados por categoría</p>
+          </div>
+          <button id="edit-budgets-shortcut-btn" class="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 transition">
+            Editar topes ✏️
+          </button>
+        </div>
+        <div id="budgets-progress-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Renderizado dinámicamente -->
+        </div>
+      </div>
+
+      <!-- Resumen Aportación por Persona (Tú vs Pareja) -->
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100">👫 Aportación por Persona (Mes actual)</h2>
+          <span class="text-[11px] text-slate-400">CC + Efectivo</span>
+        </div>
+        <div id="person-summary-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Renderizado dinámicamente -->
+        </div>
+      </div>
+
       <!-- Listado de Movimientos del Mes con Buscador y Filtros -->
       <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -713,15 +759,21 @@ function getOrCreateSheet() {
               class="px-3 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-center outline-none" />
             <input type="text" id="new-cat-name" required placeholder="Nombre categoría..."
               class="px-3.5 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm outline-none" />
-            <button type="submit" id="save-cat-btn" class="px-4 py-2.5 rounded-2xl bg-indigo-600 text-white text-xs font-bold active:scale-95 transition">
-              + Añadir
+            <div class="relative" id="cat-budget-input-wrapper">
+              <input type="number" id="new-cat-budget" inputmode="decimal" step="1" min="0" placeholder="Tope €/mes (opc.)"
+                class="w-full px-3.5 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold outline-none" />
+            </div>
+          </div>
+          <div class="flex justify-end">
+            <button type="submit" id="save-cat-btn" class="w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-indigo-600 text-white text-xs font-bold active:scale-95 transition">
+              + Añadir Categoría
             </button>
           </div>
         </form>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
           <div>
-            <h3 class="text-xs font-bold uppercase tracking-wider text-rose-500 mb-2">Categorías de Gasto</h3>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-rose-500 mb-2">Categorías de Gasto (y Tope Mensual)</h3>
             <div id="expense-categories-list" class="space-y-1.5"></div>
           </div>
           <div>
@@ -865,16 +917,16 @@ function getOrCreateSheet() {
       const STORAGE_KEY = 'finanzas_hogar_v1';
 
       const DEFAULT_EXPENSE_CATEGORIES = [
-        { name: 'Supermercado', emoji: '🛒', color: '#10b981' },
-        { name: 'Suministros (luz/agua)', emoji: '💡', color: '#f59e0b' },
-        { name: 'Gastos Óliver', emoji: '👶', color: '#3b82f6' },
-        { name: 'Mascota Nami', emoji: '🐾', color: '#ec4899' },
-        { name: 'Gasolina', emoji: '⛽', color: '#6366f1' },
-        { name: 'Ocio', emoji: '🍽️', color: '#8b5cf6' },
-        { name: 'Farmacia', emoji: '💊', color: '#14b8a6' },
-        { name: 'Decoración', emoji: '🪴', color: '#f97316' },
-        { name: 'Vivienda y Vehículos', emoji: '🏠', color: '#ef4444' },
-        { name: 'Otros', emoji: '📦', color: '#64748b' }
+        { name: 'Supermercado', emoji: '🛒', color: '#10b981', budget: 450 },
+        { name: 'Suministros (luz/agua)', emoji: '💡', color: '#f59e0b', budget: 180 },
+        { name: 'Gastos Óliver', emoji: '👶', color: '#3b82f6', budget: 0 },
+        { name: 'Mascota Nami', emoji: '🐾', color: '#ec4899', budget: 0 },
+        { name: 'Gasolina', emoji: '⛽', color: '#6366f1', budget: 0 },
+        { name: 'Ocio', emoji: '🍽️', color: '#8b5cf6', budget: 200 },
+        { name: 'Farmacia', emoji: '💊', color: '#14b8a6', budget: 0 },
+        { name: 'Decoración', emoji: '🪴', color: '#f97316', budget: 0 },
+        { name: 'Vivienda y Vehículos', emoji: '🏠', color: '#ef4444', budget: 0 },
+        { name: 'Otros', emoji: '📦', color: '#64748b', budget: 0 }
       ];
 
       const DEFAULT_INCOME_CATEGORIES = [
@@ -951,12 +1003,14 @@ function getOrCreateSheet() {
         selectedMonth: new Date().getMonth(), // 0-11
         activeFilter: 'all',
         searchQuery: '',
-        methodFilter: 'all'
+        methodFilter: 'all',
+        selectedTrendCategory: 'expense:Supermercado'
       };
 
       let donutChartInstance = null;
       let barChartInstance = null;
       let ccLineChartInstance = null;
+      let categoryTrendChartInstance = null;
 
       /* =========================================================================
        * 3. PERSISTENCIA EN LOCALSTORAGE Y UTILIDADES DE FORMATO
@@ -1303,8 +1357,112 @@ function getOrCreateSheet() {
         document.getElementById('fixed-expense-amount').textContent = formatCurrency(fixedExpense);
         document.getElementById('variable-expense-amount').textContent = formatCurrency(variableExpense);
 
+        renderBudgetsDashboard(monthMovs);
+        renderPersonSummary(monthMovs);
         renderMovementsList(monthMovs);
         renderCharts();
+      }
+
+      function renderBudgetsDashboard(monthMovs) {
+        const card = document.getElementById('budgets-dashboard-card');
+        const listEl = document.getElementById('budgets-progress-list');
+        const budgetedCats = state.expenseCategories.filter(c => Number(c.budget) > 0);
+
+        if (budgetedCats.length === 0) {
+          card.classList.add('hidden');
+          return;
+        }
+
+        card.classList.remove('hidden');
+        listEl.innerHTML = budgetedCats.map(cat => {
+          const limit = Number(cat.budget);
+          const spent = monthMovs
+            .filter(m => m.type === 'expense' && m.category === cat.name)
+            .reduce((acc, m) => acc + (Number(m.amount) || 0), 0);
+
+          const rawPct = limit > 0 ? (spent / limit) * 100 : 0;
+          const barWidth = Math.min(100, Math.round(rawPct));
+
+          let barColor = 'bg-emerald-500';
+          let textColor = 'text-emerald-600 dark:text-emerald-400';
+          if (rawPct >= 100) {
+            barColor = 'bg-rose-500';
+            textColor = 'text-rose-600 dark:text-rose-400';
+          } else if (rawPct >= 80) {
+            barColor = 'bg-amber-500';
+            textColor = 'text-amber-600 dark:text-amber-400';
+          }
+
+          return `
+            <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/60 space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-bold text-slate-800 dark:text-slate-100 truncate">${cat.emoji} ${cat.name}</span>
+                <span class="font-extrabold ${textColor} shrink-0">${Math.round(rawPct)}%</span>
+              </div>
+              <div class="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                <div class="h-full rounded-full ${barColor} transition-all duration-300" style="width: ${barWidth}%"></div>
+              </div>
+              <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                <span>Gastado: <strong class="text-slate-700 dark:text-slate-200">${formatCurrency(spent)}</strong></span>
+                <span>Tope: ${formatCurrency(limit)}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function renderPersonSummary(monthMovs) {
+        const gridEl = document.getElementById('person-summary-grid');
+        const p1 = state.settings.person1 || 'Tú';
+        const p2 = state.settings.person2 || 'Pareja';
+
+        const people = [
+          { name: p1, icon: '🧑', accent: 'indigo' },
+          { name: p2, icon: '❤️', accent: 'violet' }
+        ];
+
+        gridEl.innerHTML = people.map((p, idx) => {
+          const movs = monthMovs.filter(m => {
+            if (idx === 0) return m.person === p1 || (!m.person) || (m.person !== p2 && m.person === 'Tú');
+            return m.person === p2 || (p2 !== 'Pareja' && m.person === 'Pareja');
+          });
+
+          let inc = 0, exp = 0, expCash = 0, expCC = 0;
+          movs.forEach(m => {
+            const amt = Number(m.amount) || 0;
+            if (m.type === 'income') inc += amt;
+            else {
+              exp += amt;
+              if (m.method === 'Efectivo') expCash += amt;
+              else expCC += amt;
+            }
+          });
+
+          return `
+            <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/60 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-extrabold text-slate-800 dark:text-white flex items-center gap-1.5">
+                  <span>${p.icon}</span> ${p.name}
+                </span>
+                <span class="text-[10px] font-semibold text-slate-400">${movs.length} mov.</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 pt-1">
+                <div class="bg-white dark:bg-slate-900/80 rounded-xl p-2">
+                  <span class="block text-[10px] text-slate-400">Ingresos</span>
+                  <span class="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">+${formatCurrency(inc)}</span>
+                </div>
+                <div class="bg-white dark:bg-slate-900/80 rounded-xl p-2">
+                  <span class="block text-[10px] text-slate-400">Gastos</span>
+                  <span class="text-xs font-extrabold text-rose-600 dark:text-rose-400">-${formatCurrency(exp)}</span>
+                </div>
+              </div>
+              <div class="text-[10px] text-slate-500 dark:text-slate-400 flex justify-between px-0.5">
+                <span>Pagado CC: <strong>${Math.round(expCC)} €</strong></span>
+                <span>Efectivo: <strong>${Math.round(expCash)} €</strong></span>
+              </div>
+            </div>
+          `;
+        }).join('');
       }
 
       function renderMovementsList(monthMovs) {
@@ -1369,11 +1527,14 @@ function getOrCreateSheet() {
                 <span class="text-sm sm:text-base font-extrabold ${amountColor}">
                   ${sign}${formatCurrency(m.amount)}
                 </span>
-                <div class="flex items-center gap-1">
-                  <button onclick="window.appActions.editMovement('${m.id}')" aria-label="Editar" class="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <div class="flex items-center gap-0.5">
+                  <button onclick="window.appActions.duplicateMovement('${m.id}')" title="Duplicar movimiento" aria-label="Duplicar" class="p-1.5 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                    📋
+                  </button>
+                  <button onclick="window.appActions.editMovement('${m.id}')" title="Editar movimiento" aria-label="Editar" class="p-1.5 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
                     ✏️
                   </button>
-                  <button onclick="window.appActions.deleteMovement('${m.id}')" aria-label="Eliminar" class="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                  <button onclick="window.appActions.deleteMovement('${m.id}')" title="Eliminar movimiento" aria-label="Eliminar" class="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
                     🗑️
                   </button>
                 </div>
@@ -1384,8 +1545,129 @@ function getOrCreateSheet() {
       }
 
       /* =========================================================================
-       * 8. GRÁFICOS INTERACTIVOS CON CHART.JS (Tendencia CC + Donut + Barras)
+       * 8. GRÁFICOS INTERACTIVOS CON CHART.JS (Tendencia CC + Donut + Barras + Categoría)
        * ========================================================================= */
+      function populateCategoryTrendSelect() {
+        const select = document.getElementById('cat-trend-select');
+        if (!select) return;
+
+        const expOpts = state.expenseCategories.map(c =>
+          `<option value="expense:${c.name}">${c.emoji} ${c.name} (Gasto)</option>`
+        ).join('');
+        const incOpts = state.incomeCategories.map(c =>
+          `<option value="income:${c.name}">${c.emoji} ${c.name} (Ingreso)</option>`
+        ).join('');
+
+        select.innerHTML = `<optgroup label="Gastos">${expOpts}</optgroup><optgroup label="Ingresos">${incOpts}</optgroup>`;
+
+        const allValues = [
+          ...state.expenseCategories.map(c => `expense:${c.name}`),
+          ...state.incomeCategories.map(c => `income:${c.name}`)
+        ];
+        if (!allValues.includes(state.selectedTrendCategory) && allValues.length > 0) {
+          state.selectedTrendCategory = allValues[0];
+        }
+        select.value = state.selectedTrendCategory;
+      }
+
+      function renderCategoryTrendChart() {
+        populateCategoryTrendSelect();
+        const isDark = state.settings.theme === 'dark';
+        const textColor = isDark ? '#cbd5e1' : '#475569';
+        const gridColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.2)';
+
+        const [type, ...nameParts] = (state.selectedTrendCategory || 'expense:Supermercado').split(':');
+        const catName = nameParts.join(':');
+        const meta = getCategoryMeta(type, catName);
+        const barColor = meta.color || '#6366f1';
+
+        const monthLabels = [];
+        const values = [];
+
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(state.selectedYear, state.selectedMonth - i, 1);
+          const y = d.getFullYear();
+          const m = d.getMonth();
+          monthLabels.push(d.toLocaleDateString('es-ES', { month: 'short' }).toUpperCase());
+
+          const totalCat = getMonthMovements(y, m)
+            .filter(item => item.type === type && item.category === catName)
+            .reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+
+          values.push(Math.round(totalCat * 100) / 100);
+        }
+
+        const sum6 = values.reduce((a, b) => a + b, 0);
+        const avg6 = sum6 / 6;
+        document.getElementById('cat-trend-avg-label').textContent = `${formatCurrency(avg6)} / mes`;
+
+        if (categoryTrendChartInstance) {
+          categoryTrendChartInstance.destroy();
+          categoryTrendChartInstance = null;
+        }
+
+        const ctx = document.getElementById('categoryTrendChart').getContext('2d');
+        categoryTrendChartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: monthLabels,
+            datasets: [
+              {
+                type: 'line',
+                label: 'Media 6 meses',
+                data: Array(6).fill(Math.round(avg6 * 100) / 100),
+                borderColor: isDark ? '#fbbf24' : '#f59e0b',
+                borderWidth: 2,
+                borderDash: [6, 5],
+                pointRadius: 0,
+                fill: false,
+                order: 0
+              },
+              {
+                type: 'bar',
+                label: catName,
+                data: values,
+                backgroundColor: barColor,
+                borderRadius: 8,
+                maxBarThickness: 38,
+                order: 1
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { color: textColor, font: { size: 11, weight: '600' } }
+              },
+              y: {
+                beginAtZero: true,
+                grid: { color: gridColor },
+                ticks: {
+                  color: textColor,
+                  font: { size: 10 },
+                  callback: (val) => val + '€'
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { color: textColor, boxWidth: 12, font: { size: 11 } }
+              },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => ` ${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`
+                }
+              }
+            }
+          }
+        });
+      }
+
       function renderCCTrendChart() {
         const isDark = state.settings.theme === 'dark';
         const textColor = isDark ? '#cbd5e1' : '#475569';
@@ -1534,6 +1816,7 @@ function getOrCreateSheet() {
 
       function renderCharts() {
         renderCCTrendChart();
+        renderCategoryTrendChart();
 
         const isDark = state.settings.theme === 'dark';
         const textColor = isDark ? '#cbd5e1' : '#475569';
@@ -1913,15 +2196,23 @@ function getOrCreateSheet() {
         document.getElementById('setting-person2').value = state.settings.person2 || 'Pareja';
 
         const expContainer = document.getElementById('expense-categories-list');
-        expContainer.innerHTML = state.expenseCategories.map((c, idx) => `
-          <div class="flex items-center justify-between px-3 py-2 rounded-2xl bg-slate-100 dark:bg-slate-800/80 text-xs font-semibold">
-            <span class="truncate">${c.emoji} ${c.name}</span>
-            <div class="flex items-center gap-1 shrink-0">
-              <button type="button" onclick="window.appActions.editCategory('expense', ${idx})" aria-label="Editar categoría" class="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-500 hover:text-indigo-600 transition">✏️</button>
-              ${state.expenseCategories.length > 1 ? `<button type="button" onclick="window.appActions.deleteCategory('expense', ${idx})" aria-label="Eliminar categoría" class="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-500 hover:text-rose-600 transition">🗑️</button>` : ''}
+        expContainer.innerHTML = state.expenseCategories.map((c, idx) => {
+          const budgetBadge = Number(c.budget) > 0
+            ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">Tope: ${c.budget}€</span>`
+            : '';
+          return `
+            <div class="flex items-center justify-between px-3 py-2 rounded-2xl bg-slate-100 dark:bg-slate-800/80 text-xs font-semibold gap-2">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="truncate">${c.emoji} ${c.name}</span>
+                ${budgetBadge}
+              </div>
+              <div class="flex items-center gap-1 shrink-0">
+                <button type="button" onclick="window.appActions.editCategory('expense', ${idx})" aria-label="Editar categoría" class="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-500 hover:text-indigo-600 transition">✏️</button>
+                ${state.expenseCategories.length > 1 ? `<button type="button" onclick="window.appActions.deleteCategory('expense', ${idx})" aria-label="Eliminar categoría" class="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-500 hover:text-rose-600 transition">🗑️</button>` : ''}
+              </div>
             </div>
-          </div>
-        `).join('');
+          `;
+        }).join('');
 
         const incContainer = document.getElementById('income-categories-list');
         incContainer.innerHTML = state.incomeCategories.map((c, idx) => `
@@ -1939,11 +2230,13 @@ function getOrCreateSheet() {
         document.getElementById('edit-cat-type').value = '';
         document.getElementById('edit-cat-index').value = '';
         document.getElementById('cat-form-title').textContent = 'Nueva Categoría';
-        document.getElementById('save-cat-btn').textContent = '+ Añadir';
+        document.getElementById('save-cat-btn').textContent = '+ Añadir Categoría';
         document.getElementById('cancel-cat-edit-btn').classList.add('hidden');
         document.getElementById('new-cat-type').disabled = false;
         document.getElementById('new-cat-emoji').value = '🏷️';
         document.getElementById('new-cat-name').value = '';
+        document.getElementById('new-cat-budget').value = '';
+        document.getElementById('cat-budget-input-wrapper').classList.remove('hidden');
       }
 
       function updatePersonLabels() {
@@ -2043,6 +2336,25 @@ function getOrCreateSheet() {
        * 12. ACCIONES GLOBALES EXPUESTAS PARA BOTONES DINÁMICOS
        * ========================================================================= */
       window.appActions = {
+        duplicateMovement: function (id) {
+          const mov = state.movements.find(m => m.id === id);
+          if (!mov) return;
+
+          switchView('add');
+          resetMovementForm();
+          document.getElementById('form-view-title').textContent = 'Duplicar Movimiento';
+          setMovementFormType(mov.type);
+          document.getElementById('movement-amount').value = mov.amount;
+          document.getElementById('movement-date').value = getTodayISO();
+          populateCategorySelect(mov.type, mov.category);
+          document.getElementById('movement-method').value = mov.method || 'CC';
+          document.getElementById('movement-desc').value = mov.description || '';
+
+          const isP2 = mov.person === (state.settings.person2 || 'Pareja');
+          selectPersonButton(isP2 ? 'Pareja' : 'Tú');
+          showToast('Datos copiados con fecha de hoy. Revisa y guarda.', 'info');
+        },
+
         editMovement: function (id) {
           const mov = state.movements.find(m => m.id === id);
           if (!mov) return;
@@ -2111,6 +2423,14 @@ function getOrCreateSheet() {
           typeSel.disabled = true;
           document.getElementById('new-cat-emoji').value = cat.emoji;
           document.getElementById('new-cat-name').value = cat.name;
+          const budgetWrapper = document.getElementById('cat-budget-input-wrapper');
+          if (type === 'expense') {
+            budgetWrapper.classList.remove('hidden');
+            document.getElementById('new-cat-budget').value = Number(cat.budget) > 0 ? cat.budget : '';
+          } else {
+            budgetWrapper.classList.add('hidden');
+            document.getElementById('new-cat-budget').value = '';
+          }
           document.getElementById('new-cat-name').focus();
         },
 
@@ -2195,6 +2515,17 @@ function getOrCreateSheet() {
         document.getElementById('jump-initial-cc-btn').addEventListener('click', () => {
           switchView('settings');
           setTimeout(() => document.getElementById('setting-initial-cc').focus(), 150);
+        });
+
+        // Selector del gráfico de evolución por categoría
+        document.getElementById('cat-trend-select').addEventListener('change', (e) => {
+          state.selectedTrendCategory = e.target.value;
+          renderCategoryTrendChart();
+        });
+
+        // Atajo desde presupuestos hacia Ajustes
+        document.getElementById('edit-budgets-shortcut-btn').addEventListener('click', () => {
+          switchView('settings');
         });
 
         // Filtros listado
@@ -2341,6 +2672,12 @@ function getOrCreateSheet() {
         // Ajustes: Categorías (Crear y Editar)
         document.getElementById('cancel-cat-edit-btn').addEventListener('click', resetCategoryForm);
 
+        document.getElementById('new-cat-type').addEventListener('change', (e) => {
+          const wrapper = document.getElementById('cat-budget-input-wrapper');
+          if (e.target.value === 'expense') wrapper.classList.remove('hidden');
+          else wrapper.classList.add('hidden');
+        });
+
         document.getElementById('category-form').addEventListener('submit', (e) => {
           e.preventDefault();
           const editType = document.getElementById('edit-cat-type').value;
@@ -2348,6 +2685,8 @@ function getOrCreateSheet() {
           const type = editType || document.getElementById('new-cat-type').value;
           const emoji = document.getElementById('new-cat-emoji').value.trim() || '🏷️';
           const name = document.getElementById('new-cat-name').value.trim();
+          const rawBudget = parseFloat(document.getElementById('new-cat-budget').value);
+          const budget = type === 'expense' && !isNaN(rawBudget) && rawBudget > 0 ? Math.round(rawBudget * 100) / 100 : 0;
           if (!name) return;
 
           const list = type === 'income' ? state.incomeCategories : state.expenseCategories;
@@ -2356,7 +2695,7 @@ function getOrCreateSheet() {
             const idx = Number(editIndex);
             const oldName = list[idx]?.name;
             if (list[idx]) {
-              list[idx] = { ...list[idx], name, emoji };
+              list[idx] = { ...list[idx], name, emoji, ...(type === 'expense' ? { budget } : {}) };
               // Renombrar la categoría en movimientos existentes y gastos fijos
               if (oldName && oldName !== name) {
                 state.movements.forEach(m => {
@@ -2378,8 +2717,9 @@ function getOrCreateSheet() {
             }
             const palette = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6', '#14b8a6', '#f97316'];
             const color = palette[Math.floor(Math.random() * palette.length)];
-            list.push({ name, emoji, color });
+            list.push({ name, emoji, color, ...(type === 'expense' ? { budget } : {}) });
             document.getElementById('new-cat-name').value = '';
+            document.getElementById('new-cat-budget').value = '';
             showToast(`Categoría "${name}" añadida`, 'success');
           }
 
